@@ -554,6 +554,10 @@ public:
 
     // return calculated AOA
     float getAOA(void);
+    //Hussein
+    float getAOA_on(void) const {
+    	return _AOA;
+    }
 
     // return calculated SSA
     float getSSA(void);
