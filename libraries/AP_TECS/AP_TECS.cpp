@@ -262,6 +262,20 @@ const AP_Param::GroupInfo AP_TECS::var_info[] = {
     // @Range: -5.0 0.0
     // @User: Advanced
     AP_GROUPINFO("PTCH_FF_K", 30, AP_TECS, _pitch_ff_k, 0.0),
+
+    // @Param: Backstep_P
+    // @DisplayName: Gain for Backstepping
+    // @Description: This parameter sets the gain of backstepping,
+    // @Range: 0.0 20.0
+    // @User: Advanced
+    AP_GROUPINFO("Kc", 31, AP_TECS, _Kc, 0.0),
+
+    // @Param: Backstep_P
+    // @DisplayName: Gain for Backstepping
+    // @Description: This parameter sets the gain of backstepping,
+    // @Range: 0.0 20.0
+    // @User: Advanced
+    AP_GROUPINFO("kk", 32, AP_TECS, _kk1, 0.001),
     
     AP_GROUPEND
 };
@@ -667,9 +681,29 @@ void AP_TECS::_update_throttle_with_airspeed(void)
         if (_flags.is_doing_auto_land && !is_zero(_land_throttle_damp)) {
             throttle_damp = _land_throttle_damp;
         }
+
         _throttle_dem = (_STE_error + STEdot_error * throttle_damp) * K_STE2Thr + ff_throttle;
 
-        // Constrain throttle demand
+        //adaptive backstepping Hussein
+         float beta = 1.225*0.458/(2*2.0f); // Beta = Rau * S/2m
+         _error_Tas = -(_TAS_state - _TAS_dem);
+         _aoa_rad = radians(_ahrs.getAOA_on());
+         //_Theta_est = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem_adj*_TAS_dem_adj)*0.001*(1+_ahrs.getAOA()+ _ahrs.getAOA()*_ahrs.getAOA()));
+
+
+         _Theta_est = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(1+_aoa_rad+ _aoa_rad*_aoa_rad));
+
+         // Constrain throttle demand
+         _CD0 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(1));
+         _k1 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(_aoa_rad));
+         _k2 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(_aoa_rad*_aoa_rad));
+         _k2 = 0;
+
+         _Theta_est_previous = _Theta_est;
+
+         _backstepping = ((2.0f/cosf(_aoa_rad))*(GRAVITY_MSS*sinf(_ahrs.pitch-_aoa_rad) + _TAS_rate_dem + beta*(_error_Tas*_error_Tas + _TAS_dem*_TAS_dem)*(1+_aoa_rad+ _aoa_rad*_aoa_rad)*_Theta_est) - _Kc*_error_Tas);
+
+
         _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
 
         float THRminf_clipped_to_zero = constrain_float(_THRminf, 0, _THRmaxf);
@@ -682,7 +716,13 @@ void AP_TECS::_update_throttle_with_airspeed(void)
             _throttle_dem = constrain_float(_throttle_dem,
                                             _last_throttle_dem - thrRateIncr,
                                             _last_throttle_dem + thrRateIncr);
+
+            _backstepping = constrain_float(_backstepping,
+            								_last_backstepping - thrRateIncr,
+											_last_backstepping + thrRateIncr);
+
             _last_throttle_dem = _throttle_dem;
+            _last_backstepping = _backstepping;
         }
 
         // Calculate integrator state upper and lower limits
@@ -712,8 +752,28 @@ void AP_TECS::_update_throttle_with_airspeed(void)
         _throttle_dem = _throttle_dem + _integTHR_state;
     }
 
+
+    // Hussein
+    float PID = _throttle_dem;
+
+
+    _throttle_dem = _backstepping;
     // Constrain throttle demand
     _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
+
+    AP::logger().Write("TEST", "TimeUS,eTAS,CD0,K1,K2,AOA,PIT", "Qffffff",
+                       AP_HAL::micros64(),
+                       _error_Tas,
+					   _CD0,
+					   _k1,
+					   _k2,
+					   _aoa_rad,
+					   _ahrs.pitch);
+
+    AP::logger().Write("TESC", "TimeUS,PID,BAC", "Qff",
+                       AP_HAL::micros64(),
+					   PID,
+					   _backstepping);
 }
 
 float AP_TECS::_get_i_gain(void)
