@@ -757,7 +757,7 @@ void AP_TECS::_update_throttle_with_airspeed(void)
     float PID = _throttle_dem;
 
 
-    _throttle_dem = _backstepping;
+    //_throttle_dem = _backstepping;
     // Constrain throttle demand
     _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
 
