@@ -29,10 +29,12 @@ QuadPlane::QuadPlane(const char *frame_str) :
     const char *frame_type = "x";
     uint8_t motor_offset = 4;
     
-    if (strstr(frame_str, "-viable")) {
+    if (strstr(frame_str, "-octa-quad")) {
         frame_type = "octa-quad";
     } else if (strstr(frame_str, "-octaquad")) {
-        frame_type = "octa-quad";
+    	frame_type = "octa-quad";
+    } else if (strstr(frame_str, "-viable")) {
+		frame_type = "octa-quad";
     } else if (strstr(frame_str, "-octa")) {
         frame_type = "octa";
     } else if (strstr(frame_str, "-hexax")) {
