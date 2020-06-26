@@ -2157,6 +2157,12 @@ class AutoTest(ABC):
                 raise ValueError("count %u not handled" % count)
         self.progress("Files same")
 
+    def assert_receive_message(self, type, timeout=1):
+        m = self.mav.recv_match(type=type, blocking=True, timeout=timeout)
+        if m is None:
+            raise NotAchievedException("Did not get %s" % type)
+        return m
+
     def assert_rally_files_same(self, file1, file2):
         self.progress("Comparing (%s) and (%s)" % (file1, file2, ))
         f1 = open(file1)
@@ -2946,6 +2952,7 @@ class AutoTest(ABC):
                 target_compid=None,
                 timeout=10,
                 quiet=False):
+        self.drain_mav_unparsed()
         self.get_sim_time() # required for timeout in run_cmd_get_ack to work
         self.send_cmd(command,
                       p1,
@@ -5123,6 +5130,8 @@ class AutoTest(ABC):
 
     def set_message_rate_hz(self, id, rate_hz):
         '''set a message rate in Hz; 0 for original, -1 to disable'''
+        if type(id) == str:
+            id = eval("mavutil.mavlink.MAVLINK_MSG_ID_%s" % id)
         if rate_hz == 0 or rate_hz == -1:
             set_interval = rate_hz
         else:
