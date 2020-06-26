@@ -701,7 +701,7 @@ void AP_TECS::_update_throttle_with_airspeed(void)
 
          _Theta_est_previous = _Theta_est;
 
-         _backstepping = ((2.0f/cosf(_aoa_rad))*(GRAVITY_MSS*sinf(_ahrs.pitch-_aoa_rad) + _TAS_rate_dem + beta*(_error_Tas*_error_Tas + _TAS_dem*_TAS_dem)*(1+_aoa_rad+ _aoa_rad*_aoa_rad)*_Theta_est) - _Kc*_error_Tas);
+         _backstepping = ((2.0f/cosf(_aoa_rad))*(GRAVITY_MSS*sinf(_ahrs.pitch-_aoa_rad) + _TAS_rate_dem + beta*(_STE_error*_STE_error + _TAS_dem*_TAS_dem)*(1+_aoa_rad+ _aoa_rad*_aoa_rad)*_Theta_est) - _Kc*_STE_error);
 
 
         _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
@@ -778,18 +778,20 @@ void AP_TECS::_update_throttle_with_airspeed(void)
     float PID = _throttle_dem;
 
 
-    //_throttle_dem = _backstepping;
+    _throttle_dem = _backstepping;
     // Constrain throttle demand
     _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
 
     AP::logger().Write("TEST", "TimeUS,eTAS,CD0,K1,K2,AOA,PIT", "Qffffff",
                        AP_HAL::micros64(),
                        _error_Tas,
-					   _CD0,
+					   _STE_error,
 					   _k1,
 					   _k2,
 					   _aoa_rad,
 					   _ahrs.pitch);
+
+
 
     AP::logger().Write("TESC", "TimeUS,PID,BAC", "Qff",
                        AP_HAL::micros64(),
