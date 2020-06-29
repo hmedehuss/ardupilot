@@ -2,6 +2,7 @@
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_Math.h>
 
+
 // table of user settable parameters
 const AP_Param::GroupInfo AC_AttitudeControl_Multi::var_info[] = {
     // parameters from parent vehicle
@@ -211,15 +212,56 @@ const AP_Param::GroupInfo AC_AttitudeControl_Multi::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("THR_MIX_MAN", 6, AC_AttitudeControl_Multi, _thr_mix_man, AC_ATTITUDE_CONTROL_MAN_DEFAULT),
 
+    // @Param: Ixx
+    // @DisplayName: inertia Ix
+    // @Description: valeur inertia Ixx
+    // @Range: 0 10
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("IXX", 7, AC_AttitudeControl_Multi, _Ix, 0),
+
+    // @Param: _Kpy
+    // @DisplayName: _Kpy
+    // @Description: valeur _Kpy
+    // @Range: 0 5
+    // @Increment: 0.01
+    // @User: Advanced
+    AP_GROUPINFO("KPY", 8, AC_AttitudeControl_Multi, _Kpy, 0),
+
+    // @Param: _Kdy
+    // @DisplayName: _Kdy
+    // @Description: valeur _Kdy
+    // @Range: 0 5
+    // @Increment: 0.01
+    // @User: Advanced
+    AP_GROUPINFO("KDY", 9, AC_AttitudeControl_Multi, _Kdy, 0),
+
+    // @Param: KPP
+    // @DisplayName: KPP
+    // @Description: valeur KPP
+    // @Range: 0 5
+    // @Increment: 0.01
+    // @User: Advanced
+    AP_GROUPINFO("KPP", 10, AC_AttitudeControl_Multi, _Kpphi, 0),
+
+    // @Param: KPDP
+    // @DisplayName: KPDP
+    // @Description: valeur KPDP
+    // @Range: 0 5
+    // @Increment: 0.01
+    // @User: Advanced
+    AP_GROUPINFO("KPDP", 11, AC_AttitudeControl_Multi, _Kpdphi, 0),
+
     AP_GROUPEND
 };
 
-AC_AttitudeControl_Multi::AC_AttitudeControl_Multi(AP_AHRS_View &ahrs, const AP_Vehicle::MultiCopter &aparm, AP_MotorsMulticopter& motors, float dt) :
+AC_AttitudeControl_Multi::AC_AttitudeControl_Multi(AP_AHRS_View &ahrs, const AP_Vehicle::MultiCopter &aparm, AP_MotorsMulticopter& motors, float dt, const AP_InertialNav& inav) :
     AC_AttitudeControl(ahrs, aparm, motors, dt),
     _motors_multi(motors),
     _pid_rate_roll(AC_ATC_MULTI_RATE_RP_P, AC_ATC_MULTI_RATE_RP_I, AC_ATC_MULTI_RATE_RP_D, 0.0f, AC_ATC_MULTI_RATE_RP_IMAX, AC_ATC_MULTI_RATE_RP_FILT_HZ, 0.0f, AC_ATC_MULTI_RATE_RP_FILT_HZ, dt),
     _pid_rate_pitch(AC_ATC_MULTI_RATE_RP_P, AC_ATC_MULTI_RATE_RP_I, AC_ATC_MULTI_RATE_RP_D, 0.0f, AC_ATC_MULTI_RATE_RP_IMAX, AC_ATC_MULTI_RATE_RP_FILT_HZ, 0.0f, AC_ATC_MULTI_RATE_RP_FILT_HZ, dt),
-    _pid_rate_yaw(AC_ATC_MULTI_RATE_YAW_P, AC_ATC_MULTI_RATE_YAW_I, AC_ATC_MULTI_RATE_YAW_D, 0.0f, AC_ATC_MULTI_RATE_YAW_IMAX, AC_ATC_MULTI_RATE_RP_FILT_HZ, AC_ATC_MULTI_RATE_YAW_FILT_HZ, 0.0f, dt)
+    _pid_rate_yaw(AC_ATC_MULTI_RATE_YAW_P, AC_ATC_MULTI_RATE_YAW_I, AC_ATC_MULTI_RATE_YAW_D, 0.0f, AC_ATC_MULTI_RATE_YAW_IMAX, AC_ATC_MULTI_RATE_RP_FILT_HZ, AC_ATC_MULTI_RATE_YAW_FILT_HZ, 0.0f, dt),
+	_inav(inav)
 {
     AP_Param::setup_object_defaults(this, var_info);
 }
@@ -306,15 +348,100 @@ void AC_AttitudeControl_Multi::update_throttle_rpy_mix()
 
 void AC_AttitudeControl_Multi::rate_controller_run()
 {
-    // move throttle vs attitude mixing towards desired (called from here because this is conveniently called on every iteration)
-    update_throttle_rpy_mix();
+	// move throttle vs attitude mixing towards desired (called from here because this is conveniently called on every iteration)
+	update_throttle_rpy_mix();
 
-    _rate_target_ang_vel += _rate_sysid_ang_vel;
+	_rate_target_ang_vel += _rate_sysid_ang_vel;
 
-    Vector3f gyro_latest = _ahrs.get_gyro_latest();
+	Vector3f gyro_latest = _ahrs.get_gyro_latest();
 
-    _motors.set_roll(get_rate_roll_pid().update_all(_rate_target_ang_vel.x, gyro_latest.x, _motors.limit.roll) + _actuator_sysid.x);
-    _motors.set_roll_ff(get_rate_roll_pid().get_ff());
+
+
+	//float x_d = pos_d.x;
+
+	//float ex = x - x_d;
+	//    const Vector3f& dpos_d = _pos_ctr.get_desired_velocity();
+	//    //float dx_d = dpos_d.x;
+	//    double dy_d;
+	//    if(!isnan(dpos_d.y))
+	//    dy_d = dpos_d.y;
+	//    else dy_d=0;
+	//    //float dx = curr_vel.x;
+	//float dex = dx - dx_d;
+	//float theta = _ahrs.pitch;
+	//float theta_d = _pos_ctr.get_pitch();
+	//float d_theta = gyro_latest.y;
+	//float x = curr_pos.x;
+	//float d_theta_d = _rate_target_ang_vel.y;
+	//float epitch = theta - theta_d;
+	//float edpitch = d_theta - d_theta_d;
+
+
+	//    if(AP_Notify::flags.flight_mode==3) {
+	const Vector3f curr_pos = _inav.get_position();
+	float y = curr_pos.y/100;
+	Vector3f pos_d=_pos_target;
+	float y_d = pos_d.y/100;
+	int ey = y - y_d;
+
+	Vector3f curr_vel = _inav.get_velocity();
+	float dy= curr_vel.y/100;
+	float dy_d = _vel_target.y/100;
+	float dey = dy_d - dy ;
+
+	float d_phi = gyro_latest.x;
+	_d_phi_d = _rate_target_ang_vel.x;
+	Vector3f e_att = get_att_err();
+	float eroll = e_att.x;
+
+
+	float rc = 1 / (M_2PI * 10);
+	float alpha = _dt / (_dt + rc);
+
+
+	_d_phi_d += alpha * (_rate_target_ang_vel.x - _d_phi_d);
+	_dedroll += alpha * ((_d_phi_d - d_phi) - _dedroll);
+
+	float  Sat1, Sat2, Sat3, Sat4;
+
+	//      _sat_roll = (_Ix/(GRAVITY_MSS*10000))*(saturation(_Kpy*(ey), 10)  + saturation(_Kdy*dey, 5) + saturation(_Kpphi*eroll, 2)  + saturation(_Kpdphi*dedroll, 0.5));
+	_sat_roll =  ((saturation(_Kpphi*eroll, 0.5)  + saturation(_Kpdphi*_dedroll, 0.3))+ _actuator_sysid.x)/10;
+
+
+	Sat1 = saturation(_Kpy*(ey), 1);
+	Sat2 = saturation(_Kdy*dey, 0.5);
+	Sat3 = saturation(_Kpphi*eroll, 0.5);
+	Sat4 = saturation(_Kpdphi*_dedroll, 0.3);
+	_motors.set_roll(_sat_roll);
+
+
+
+
+
+	//    }
+	//    else {
+	//float PID = get_rate_roll_pid().update_all(_rate_target_ang_vel.x, gyro_latest.x, _motors.limit.roll) + _actuator_sysid.x;
+	//    	_motors.set_roll(PID);
+	//        _motors.set_roll_ff(get_rate_roll_pid().get_ff());
+
+
+
+        AP::logger().Write("SATT", "TimeUS,In,Sat1,Sat2,Sat3,Sat4,y,yd,dy,dyd", "Qfffffffdd",
+                                                AP_HAL::micros64(),
+                                                (double)_sat_roll,
+                                                (double)Sat1,
+                                                (double)Sat2,
+                                                (double)Sat3,
+                                                (double)Sat4,
+												y,
+												y_d,
+												dy,
+												dy_d);
+
+//    }
+
+
+
 
     _motors.set_pitch(get_rate_pitch_pid().update_all(_rate_target_ang_vel.y, gyro_latest.y, _motors.limit.pitch) + _actuator_sysid.y);
     _motors.set_pitch_ff(get_rate_pitch_pid().get_ff());
@@ -327,6 +454,18 @@ void AC_AttitudeControl_Multi::rate_controller_run()
 
     control_monitor_update();
 }
+
+
+
+
+float  AC_AttitudeControl_Multi::saturation(float sigma, float b) {
+
+	if(sigma > b) return b;
+	else if(sigma< -b ) return -b;
+	else return sigma;
+
+}
+
 
 // sanity check parameters.  should be called once before takeoff
 void AC_AttitudeControl_Multi::parameter_sanity_check()

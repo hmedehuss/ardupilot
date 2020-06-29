@@ -240,6 +240,9 @@ public:
     /// return the crosstrack_error - horizontal error of the actual position vs the desired position
     float crosstrack_error() const { return _track_error_xy;}
 
+    const Vector3f& getpos();
+    const Vector3f& get_vel_target();
+
     static const struct AP_Param::GroupInfo var_info[];
 
 protected:

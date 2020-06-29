@@ -4,7 +4,10 @@
 /// @brief   ArduCopter attitude control library
 
 #include "AC_AttitudeControl.h"
+#include <AC_WPNAV/AC_WPNAV.h>
 #include <AP_Motors/AP_MotorsMulticopter.h>
+#include <AP_InertialNav/AP_InertialNav.h>     // Inertial Navigation library
+#include <AC_AttitudeControl/AC_PosControl.h>      // Position control library
 
 // default rate controller PID gains
 #ifndef AC_ATC_MULTI_RATE_RP_P
@@ -41,10 +44,13 @@
 
 class AC_AttitudeControl_Multi : public AC_AttitudeControl {
 public:
-	AC_AttitudeControl_Multi(AP_AHRS_View &ahrs, const AP_Vehicle::MultiCopter &aparm, AP_MotorsMulticopter& motors, float dt);
+	AC_AttitudeControl_Multi(AP_AHRS_View &ahrs, const AP_Vehicle::MultiCopter &aparm, AP_MotorsMulticopter& motors, float dt, const AP_InertialNav& inav);
 
 	// empty destructor to suppress compiler warning
 	virtual ~AC_AttitudeControl_Multi() {}
+
+
+    const AP_InertialNav&       _inav;
 
     // pid accessors
     AC_PID& get_rate_roll_pid() override { return _pid_rate_roll; }
@@ -81,6 +87,18 @@ public:
     // user settable parameters
     static const struct AP_Param::GroupInfo var_info[];
 
+
+    float saturation(float sigma, float b);
+
+    float _sat_roll;
+
+    void set_pos_target(const Vector3f& pos) {_pos_target = pos;}
+    void set_vel_target(const Vector3f& vel) {_vel_target = vel;}
+    // angle in cd
+    void set_roll_target(float p) {_phi_d = radians(p * 0.01f);};
+    float				  _phi_d;
+
+
 protected:
 
     // update_throttle_rpy_mix - updates thr_low_comp value towards the target
@@ -93,6 +111,18 @@ protected:
     AC_PID                _pid_rate_roll;
     AC_PID                _pid_rate_pitch;
     AC_PID                _pid_rate_yaw;
+
+    AP_Float 			  _Ix;
+    AP_Float 			  _Kpy;
+    AP_Float 			  _Kdy;
+
+    AP_Float 			  _Kpphi;
+    AP_Float 			  _Kpdphi;
+    Vector3f 			  _pos_target;
+    Vector3f			  _vel_target;
+    float 				  _d_phi_d;
+    float _dedroll;
+
 
     AP_Float              _thr_mix_man;     // throttle vs attitude control prioritisation used when using manual throttle (higher values mean we prioritise attitude control over throttle)
     AP_Float              _thr_mix_min;     // throttle vs attitude control prioritisation used when landing (higher values mean we prioritise attitude control over throttle)
