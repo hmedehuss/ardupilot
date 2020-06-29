@@ -409,6 +409,10 @@ protected:
 
     // This represents a quaternion attitude error in the body frame, used for inertial frame reset handling.
     Quaternion          _attitude_ang_error;
+    void set_att_err(Vector3f p) {_err_att = p;}
+    Vector3f get_att_err() {return _err_att;}
+
+    Vector3f _err_att;
 
     // The angle between the target thrust vector and the current thrust vector.
     float               _thrust_angle;

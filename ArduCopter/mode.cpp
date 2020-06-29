@@ -393,6 +393,8 @@ void Mode::update_navigation()
 {
     // run autopilot to make high level decisions about control modes
     run_autopilot();
+    attitude_control->set_pos_target(wp_nav->getpos());
+    attitude_control->set_vel_target(wp_nav->get_vel_target());
 }
 
 // get_pilot_desired_angle - transform pilot's roll or pitch input into a desired lean angle
