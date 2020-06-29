@@ -1131,3 +1131,15 @@ void AC_WPNav::wp_speed_update(float dt)
     // flag that wp leash must be recalculated
     _flags.recalc_wp_leash = true;
 }
+
+
+const Vector3f& AC_WPNav::getpos()
+{
+	return _pos_control.get_pos_target();
+}
+
+
+const Vector3f& AC_WPNav::get_vel_target()
+{
+	return _pos_control.get_vel_target();
+}
