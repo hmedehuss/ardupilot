@@ -204,6 +204,7 @@ private:
 
     // estimated climb rate (m/s)
     float _climb_rate;
+    float _PID;
 
     /*
       a filter to estimate climb rate if we don't have it from the EKF
@@ -420,5 +421,6 @@ private:
     float _backstepping, _last_backstepping ;
 
     float _aoa_rad;
+    float _ff;
 
 };
