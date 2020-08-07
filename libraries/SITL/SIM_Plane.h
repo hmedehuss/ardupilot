@@ -48,18 +48,19 @@ protected:
     struct {
         // from last_letter skywalker_2013/aerodynamics.yaml
         // thanks to Georacer!
-        float s = 0.45;
-        float b = 1.88;
-        float c = 0.24;
-        float c_lift_0 = 0.56;
+    	// 30/07/2020 ajouts des coefficients de VIABLE à la simulation d'après: Initial Estimate of UC3 VIABLE prototype aerodynamics
+        float s = 0.458;//<- Modèle VIABLE //s = 0.45; //<- Ardupilot original
+        float b = 2.238;//b = 1.88;//<- Ardupilot original
+        float c = 0.205;//<- Modèle VIABLE//c = 0.24;//<- Ardupilot original
+        float c_lift_0 = 0.46;//<- Modèle VIABLE //c_lift_0 = 0.56;
         float c_lift_deltae = 0;
-        float c_lift_a = 6.9;
+        float c_lift_a = 5.31;//<- Modèle VIABLE //c_lift_a = 6.9;//<- Ardupilot original
         float c_lift_q = 0;
         float mcoeff = 50;
         float oswald = 0.9;
         float alpha_stall = 0.4712;
         float c_drag_q = 0;
-        float c_drag_deltae = 0.0;
+        float c_drag_deltae = 0;
         float c_drag_p = 0.1;
         float c_y_0 = 0;
         float c_y_b = -0.98;
@@ -74,9 +75,9 @@ protected:
         float c_l_deltaa = 0.25;
         float c_l_deltar = -0.037;
         float c_m_0 = 0.045;
-        float c_m_a = -0.7;
+        float c_m_a = -3.5;//<- Modèle VIABLE //c_m_a = -0.7;//<- Ardupilot original
         float c_m_q = -20;
-        float c_m_deltae = 1.0;
+        float c_m_deltae = 5.0;//<-Modèle VIABLE augmentée car avant drone instable//c_m_deltae = 1.0;//<-Ardupilot
         float c_n_0 = 0;
         float c_n_b = 0.25;
         float c_n_p = 0.022;
