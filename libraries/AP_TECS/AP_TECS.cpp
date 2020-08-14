@@ -470,8 +470,31 @@ void AP_TECS::_update_speed_demand(void)
         _TAS_rate_dem = (_TAS_dem - TAS_dem_previous) / dt;
         _TAS_dem_adj = _TAS_dem;
     }
+
+    // Creating alternatively pitch step of +5 degree and -5degree:
+
+    	if(_flight_stage == AP_Vehicle::FixedWing::FLIGHT_NORMAL){
+    		if(AP_HAL::millis()  - _time_inject <3 * 1000){
+    			}
+    		else{
+    			if(sin(2 * 3.149265 / 120 * (AP_HAL::millis() - _time_inject)/1000)>0){
+    				_TAS_dem_adj = _TAS_dem = ff_TAS_dem + 5;
+    			}
+    			else{
+    				_TAS_dem_adj = _TAS_dem =  ff_TAS_dem + 2;
+    			}
+    		}
+    	}
+    	else{
+    		_time_inject = AP_HAL::millis() ;
+    		ff_TAS_dem = _TAS_dem =  _TAS_dem_adj;
+    	}
+    	// End of pitch step creator
+    	_TAS_rate_dem = (_TAS_dem - TAS_dem_previous) / dt;
+
     // Constrain speed demand again to protect against bad values on initialisation.
-    _TAS_dem_adj = constrain_float(_TAS_dem_adj, _TASmin, _TASmax);
+    //_TAS_dem_adj = constrain_float(_TAS_dem_adj, _TASmin, _TASmax);
+
 }
 
 void AP_TECS::_update_height_demand(void)
@@ -586,6 +609,7 @@ void AP_TECS::_detect_underspeed(void)
 
 void AP_TECS::_update_energies(void)
 {
+
     // Calculate specific energy demands
     _SPE_dem = _hgt_dem_adj * GRAVITY_MSS;
     _SKE_dem = 0.5f * _TAS_dem_adj * _TAS_dem_adj;
@@ -601,6 +625,34 @@ void AP_TECS::_update_energies(void)
     // Calculate specific energy rate
     _SPEdot = _climb_rate * GRAVITY_MSS;
     _SKEdot = _TAS_state * _vel_dot;
+
+    AP::logger().Write("ENER", "TimeUS,SPEd,SPE,SKEd,SKE", "Qffff",
+                           AP_HAL::micros64(),
+						   _SPE_dem,
+    					   _SPE_est,
+						   _SKE_dem,
+						   _SKE_est);
+
+    AP::logger().Write("ENED", "TimeUS,SPEd_d,SPE_d,SKEd_d,SKE_d", "Qffff",
+                               AP_HAL::micros64(),
+							   _SPEdot_dem,
+							   _SPEdot,
+							   _SKEdot_dem,
+							   _SKEdot);
+
+    AP::logger().Write("ENET", "TimeUS,STEd,STE,STEd_d,STE_d", "Qffff",
+                                   AP_HAL::micros64(),
+								   _SPE_dem + _SKE_dem,
+								   _SPE_est + _SKE_est,
+								   _SPEdot_dem + _SKEdot_dem,
+								   _SPEdot + _SKEdot);
+
+    AP::logger().Write("INET", "TimeUS,TAS_d,TASd_d,heig_d,heigd_d", "Qffff",
+                                       AP_HAL::micros64(),
+									   _TAS_dem_adj,
+									   _TAS_rate_dem,
+									   _hgt_dem_adj,
+									   _hgt_rate_dem);
 
 }
 
@@ -641,7 +693,18 @@ void AP_TECS::_update_throttle_with_airspeed(void)
     
     // Calculate total energy error
     _STE_error = constrain_float((_SPE_dem - _SPE_est), SPE_err_min, SPE_err_max) + _SKE_dem - _SKE_est;
+    _STE_error =_SPE_dem - _SPE_est + _SKE_dem - _SKE_est;
+
+    AP::logger().Write("ETEC", "TimeUS,SPEe,SPEe_m,SPEe_M,SKEe, STE_e", "Qfffff",
+                                           AP_HAL::micros64(),
+										   _SPE_dem - _SPE_est,
+										   SPE_err_min,
+										   SPE_err_max,
+										   _SKE_dem - _SKE_est,
+										   _STE_error);
+
     float STEdot_dem = constrain_float((_SPEdot_dem + _SKEdot_dem), _STEdot_min, _STEdot_max);
+    STEdot_dem =_SPEdot_dem + _SKEdot_dem;
     float STEdot_error = STEdot_dem - _SPEdot - _SKEdot;
 
     // Apply 0.5 second first order filter to STEdot_error
@@ -675,7 +738,13 @@ void AP_TECS::_update_throttle_with_airspeed(void)
         float cosPhi = sqrtf((rotMat.a.y*rotMat.a.y) + (rotMat.b.y*rotMat.b.y));
         STEdot_dem = STEdot_dem + _rollComp * (1.0f/constrain_float(cosPhi * cosPhi , 0.1f, 1.0f) - 1.0f);
         ff_throttle = nomThr + STEdot_dem / (_STEdot_max - _STEdot_min) * (_THRmaxf - _THRminf);
-        _ff = ff_throttle;
+
+        //step throttle
+        if(!(_flight_stage == AP_Vehicle::FixedWing::FLIGHT_NORMAL)){
+        	throttle_22 = ff_throttle;
+        }
+
+        //step throttle
 
         // Calculate PD + FF throttle
         float throttle_damp = _thrDamp;
@@ -683,11 +752,11 @@ void AP_TECS::_update_throttle_with_airspeed(void)
             throttle_damp = _land_throttle_damp;
         }
 
-        _throttle_dem = (_STE_error + STEdot_error * throttle_damp) * K_STE2Thr + ff_throttle;
+        _throttle_dem = (_STE_error + STEdot_error * throttle_damp) * K_STE2Thr + throttle_22;//ff_throttle;
 
         //adaptive backstepping Hussein
          float beta = 1.225*0.458/(2*2.0f); // Beta = Rau * S/2m
-         _error_Tas = (_TAS_state - _TAS_dem);
+         _error_Tas = -(_TAS_state - _TAS_dem);
          _aoa_rad = radians(_ahrs.getAOA_on());
          //_Theta_est = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem_adj*_TAS_dem_adj)*0.001*(1+_ahrs.getAOA()+ _ahrs.getAOA()*_ahrs.getAOA()));
 
@@ -698,14 +767,14 @@ void AP_TECS::_update_throttle_with_airspeed(void)
          _CD0 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(1));
          _k1 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(_aoa_rad));
          _k2 = _Theta_est_previous + _DT*(-beta * (_error_Tas*_error_Tas*_error_Tas - _error_Tas*_TAS_dem*_TAS_dem)*_kk1*(_aoa_rad*_aoa_rad));
+         _k2 = 0;
 
          _Theta_est_previous = _Theta_est;
 
-         _backstepping = ((2.0f/cosf(_aoa_rad))*(GRAVITY_MSS*sinf(_ahrs.pitch-_aoa_rad) + _TAS_rate_dem + beta*(_error_Tas*_error_Tas + _TAS_dem*_TAS_dem)*(1+_aoa_rad+ _aoa_rad*_aoa_rad)*_Theta_est) - _Kc*_error_Tas);
+         _backstepping = ((2.0f/cosf(_aoa_rad))*(GRAVITY_MSS*sinf(_ahrs.pitch-_aoa_rad) + _TAS_rate_dem + beta*(_STE_error*_STE_error + _TAS_dem*_TAS_dem)*(1+_aoa_rad+ _aoa_rad*_aoa_rad)*_Theta_est) - _Kc*_STE_error);
 
 
-        _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
-        _backstepping = constrain_float(_backstepping, _THRminf, _THRmaxf);
+        //_throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
 
         float THRminf_clipped_to_zero = constrain_float(_THRminf, 0, _THRmaxf);
 
@@ -755,32 +824,28 @@ void AP_TECS::_update_throttle_with_airspeed(void)
 
 
     // Hussein
-    _PID = _throttle_dem;
+    float PID = _throttle_dem;
 
 
     //_throttle_dem = _backstepping;
     // Constrain throttle demand
     _throttle_dem = constrain_float(_throttle_dem, _THRminf, _THRmaxf);
 
-    AP::logger().Write("TEST", "TimeUS,eTAS,eSTE,K1,K2,AOA,PIT,ff,CD0", "Qffffffff",
+    AP::logger().Write("TEST", "TimeUS,eTAS,eSTE,K1,K2,AOA,PIT", "Qffffff",
                        AP_HAL::micros64(),
                        _error_Tas,
 					   _STE_error,
 					   _k1,
 					   _k2,
 					   _aoa_rad,
-					   _ahrs.pitch,
-					   _ff,
-					   _CD0);
+					   _ahrs.pitch);
 
 
 
     AP::logger().Write("TESC", "TimeUS,PID,BAC", "Qff",
                        AP_HAL::micros64(),
-					   _PID,
+					   PID,
 					   _backstepping);
-
-
 }
 
 float AP_TECS::_get_i_gain(void)
@@ -1290,6 +1355,4 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
                        (double)logging.SPE_error,
                        (double)logging.SEB_delta,
                        (double)load_factor);
-
-
 }

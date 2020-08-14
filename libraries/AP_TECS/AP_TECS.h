@@ -204,7 +204,6 @@ private:
 
     // estimated climb rate (m/s)
     float _climb_rate;
-    float _PID;
 
     /*
       a filter to estimate climb rate if we don't have it from the EKF
@@ -260,9 +259,13 @@ private:
     float _hgt_dem_prev;
     float _land_hgt_dem;
 
+    uint32_t _time_inject;
+
     // Speed demand after application of rate limiting
     // This is the demand tracked by the TECS control loops
     float _TAS_dem_adj;
+    float ff_TAS_dem;
+    float throttle_22;
 
     // Speed rate demand after application of rate limiting
     // This is the demand tracked by the TECS control loops
@@ -421,6 +424,5 @@ private:
     float _backstepping, _last_backstepping ;
 
     float _aoa_rad;
-    float _ff;
 
 };
