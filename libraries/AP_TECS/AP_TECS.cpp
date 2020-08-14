@@ -647,12 +647,16 @@ void AP_TECS::_update_energies(void)
 								   _SPEdot_dem + _SKEdot_dem,
 								   _SPEdot + _SKEdot);
 
-    AP::logger().Write("INET", "TimeUS,TAS_d,TASd_d,heig_d,heigd_d", "Qffff",
+    AP::logger().Write("INET", "TimeUS,TAS_d,TAS,TASd_d,TASd,heig_d,heig,heigd_d ,heigd", "Qffffffff",
                                        AP_HAL::micros64(),
 									   _TAS_dem_adj,
+									   _TAS_state,
 									   _TAS_rate_dem,
+									   _vel_dot,
 									   _hgt_dem_adj,
-									   _hgt_rate_dem);
+									   _height,
+									   _hgt_rate_dem,
+									   _climb_rate);
 
 }
 
