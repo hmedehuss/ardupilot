@@ -780,6 +780,18 @@ void AP_TECS::_update_throttle_with_airspeed(void)
 					   _PID,
 					   _backstepping);
 
+    AP::logger().Write("INET", "TimeUS,TAS_d,TAS,TASd_d,TASd,heig_d,heig,heigd_d ,heigd", "Qffffffff",
+                                          AP_HAL::micros64(),
+   									   _TAS_dem_adj,
+   									   _TAS_state,
+   									   _TAS_rate_dem,
+   									   _vel_dot,
+   									   _hgt_dem_adj,
+   									   _hgt_rate_dem);
+   									   _height,
+   									   _hgt_rate_dem,
+   									   _climb_rate);
+
 
 }
 
