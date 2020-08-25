@@ -787,7 +787,6 @@ void AP_TECS::_update_throttle_with_airspeed(void)
    									   _TAS_rate_dem,
    									   _vel_dot,
    									   _hgt_dem_adj,
-   									   _hgt_rate_dem,
    									   _height,
    									   _hgt_rate_dem,
    									   _climb_rate);
