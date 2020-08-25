@@ -284,7 +284,7 @@ void Frame::init(float _mass, float _hover_throttle, float _terminal_velocity, f
        scaling from total motor power to Newtons. Allows the copter
        to hover against gravity when each motor is at hover_throttle
     */
-    thrust_scale = (5 * GRAVITY_MSS) / (num_motors * 0.2);
+    thrust_scale = (_mass * GRAVITY_MSS) / (num_motors * _hover_throttle);
 
     terminal_velocity = _terminal_velocity;
     terminal_rotation_rate = _terminal_rotation_rate;
