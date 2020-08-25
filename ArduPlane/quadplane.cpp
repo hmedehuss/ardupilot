@@ -955,6 +955,20 @@ void QuadPlane::run_z_controller(void)
 
         last_pidz_init_ms = now;
     }
+
+    if (plane.control_mode == &plane.mode_auto && is_vtol_takeoff(plane.mission.get_current_nav_cmd().id)) {
+    	pos_control->force_desired_velocity(true);
+    	pos_control->set_desired_velocity_z(830.0f);
+	}
+    else if (plane.control_mode == &plane.mode_auto && is_vtol_land(plane.mission.get_current_nav_cmd().id)) {
+    		pos_control->force_desired_velocity(true);
+        	pos_control->set_desired_velocity_z(-830.0f);
+	}
+    else{
+    	pos_control->force_desired_velocity(false);
+		pos_control->set_desired_velocity_z(inertial_nav.get_velocity_z());
+    }
+
     last_pidz_active_ms = now;
     pos_control->update_z_controller();    
 }
@@ -2500,6 +2514,36 @@ void QuadPlane::takeoff_controller(void)
     run_z_controller();
 }
 
+
+void QuadPlane::vtol_loiter_controller(void)
+{
+    /*
+      for takeoff we use the position controller
+    */
+    check_attitude_relax();
+
+    setup_target_position();
+
+    // set position controller desired velocity and acceleration to zero
+    pos_control->set_desired_velocity_xy(0.0f,0.0f);
+    pos_control->set_desired_accel_xy(0.0f,0.0f);
+
+    // set position control target and update
+    pos_control->set_xy_target(poscontrol.target.x, poscontrol.target.y);
+    pos_control->update_xy_controller();
+
+    // nav roll and pitch are controller by position controller
+    plane.nav_roll_cd = pos_control->get_roll();
+    plane.nav_pitch_cd = pos_control->get_pitch();
+
+    attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(plane.nav_roll_cd,
+                                                                  plane.nav_pitch_cd,
+                                                                  get_pilot_input_yaw_rate_cds() + get_weathervane_yaw_rate_cds());
+
+    pos_control->set_alt_target_from_climb_rate(assist_climb_rate_cms(), plane.G_Dt, true);
+    run_z_controller();
+}
+
 /*
   run waypoint controller between prev_WP_loc and next_WP_loc
  */
@@ -2694,6 +2738,19 @@ bool QuadPlane::do_vtol_land(const AP_Mission::Mission_Command& cmd)
     return true;
 }
 
+bool QuadPlane::do_vtol_loiter(const AP_Mission::Mission_Command& cmd){
+	Location cmdloc = cmd.content.location;
+	cmdloc.sanitize(plane.current_loc);
+	plane.set_next_WP(cmdloc);
+	//plane.loiter_set_direction_wp(cmd);
+
+	// we set start_time_ms when we reach the waypoint
+	plane.loiter.time_max_ms = cmd.p1 * (uint32_t)1000;     // convert sec to ms
+	plane.condition_value = 1; // used to signify primary time goal not yet met
+
+	return true;
+}
+
 /*
   check if a VTOL takeoff has completed
  */
@@ -2870,6 +2927,35 @@ bool QuadPlane::verify_vtol_land(void)
         return true;
     }
     return false;
+}
+
+bool QuadPlane::verify_vtol_loiter(const AP_Mission::Mission_Command &cmd){
+	bool result = false;
+	// mission radius is always aparm.loiter_radius
+	plane.update_loiter(0);
+
+	if (plane.loiter.start_time_ms == 0) {
+		if (plane.reached_loiter_target() && plane.loiter.sum_cd > 1) {
+			// we've reached the target, start the timer
+			plane.loiter.start_time_ms = millis();
+		}
+	} else if (plane.condition_value != 0) {
+		// primary goal, loiter time
+		if ((millis() - plane.loiter.start_time_ms) > plane.loiter.time_max_ms) {
+			// primary goal completed, initialize secondary heading goal
+			plane.condition_value = 0;
+			result = plane.verify_loiter_heading(true);
+		}
+	} else {
+		// secondary goal, loiter to heading
+		result = plane.verify_loiter_heading(false);
+	}
+
+	if (result) {
+		gcs().send_text(MAV_SEVERITY_INFO,"Loiter time complete");
+		plane.auto_state.vtol_loiter = false;
+	}
+	return result;
 }
 
 // Write a control tuning packet

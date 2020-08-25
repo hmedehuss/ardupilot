@@ -44,6 +44,8 @@ class AC_PosControl
 {
 public:
 
+	bool _flag_force_desired_velocity;
+
     /// Constructor
     AC_PosControl(AP_AHRS_View& ahrs, const AP_InertialNav& inav,
                   const AP_Motors& motors, AC_AttitudeControl& attitude_control);
@@ -65,6 +67,8 @@ public:
     ///     speed_down can be positive or negative but will always be interpreted as a descent speed
     ///     leash length will be recalculated
     void set_max_speed_z(float speed_down, float speed_up);
+
+    void force_desired_velocity(bool force_velocity){_flag_force_desired_velocity = force_velocity;};
 
     /// get_max_speed_up - accessor for current maximum up speed in cm/s
     float get_max_speed_up() const { return _speed_up_cms; }

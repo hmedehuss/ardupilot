@@ -580,6 +580,13 @@ void AC_PosControl::run_z_controller()
         _vel_target.z += _vel_desired.z;
     }
 
+    if (_flag_force_desired_velocity ) {
+		_vel_target.z = _vel_desired.z;
+    }
+
+    //_vel_target.z = _vel_desired.z;
+
+
     // the following section calculates acceleration required to achieve the velocity target
 
     const Vector3f& curr_vel = _inav.get_velocity();
@@ -632,6 +639,8 @@ void AC_PosControl::run_z_controller()
         _pid_accel_z.imax(_motors.get_throttle_hover() * 1000.0f);
     }
 
+
+
     float thr_out;
     if (_vibe_comp_enabled) {
         _flags.freeze_ff_z = true;
@@ -656,6 +665,7 @@ void AC_PosControl::run_z_controller()
 
     _vel_z_control_ratio += _dt*0.1f*(0.5-error_ratio);
     _vel_z_control_ratio = constrain_float(_vel_z_control_ratio, 0.0f, 2.0f);
+
 }
 
 ///
@@ -932,6 +942,14 @@ void AC_PosControl::write_log()
                        double(accel_target.y * 0.01f),
                        double(accel_x * 0.01f),
                        double(accel_y * 0.01f));
+
+    AP::logger().Write("ZVEL","TimeUS, velzT, velzD,velzMeas",
+                               "Qfff",
+                               AP_HAL::micros64(),
+                               double(_vel_target.z * 0.01f),
+							   double(_vel_desired.z * 0.01f),
+							   double(velocity.z * 0.01f));
+
 }
 
 /// init_vel_controller_xyz - initialise the velocity controller - should be called once before the caller attempts to use the controller

@@ -51,6 +51,7 @@ public:
     void vtol_position_controller(void);
     void setup_target_position(void);
     void takeoff_controller(void);
+    void vtol_loiter_controller(void);
     void waypoint_controller(void);
 
     void update_throttle_mix(void);
@@ -84,8 +85,10 @@ public:
     bool handle_do_vtol_transition(enum MAV_VTOL_STATE state);
 
     bool do_vtol_takeoff(const AP_Mission::Mission_Command& cmd);
+    bool do_vtol_loiter(const AP_Mission::Mission_Command& cmd);
     bool do_vtol_land(const AP_Mission::Mission_Command& cmd);
     bool verify_vtol_takeoff(const AP_Mission::Mission_Command &cmd);
+    bool verify_vtol_loiter(const AP_Mission::Mission_Command &cmd);
     bool verify_vtol_land(void);
     bool in_vtol_auto(void) const;
     bool in_vtol_mode(void) const;
@@ -263,6 +266,21 @@ private:
     void run_z_controller(void);
 
     void setup_defaults(void);
+
+	/*
+	  return true if current mission item is a vtol takeoff
+	 */
+	bool is_vtol_takeoff(uint16_t id) const;
+
+	/*
+	return true if current mission item is a vtol loiter
+	*/
+	bool is_vtol_loiter(uint16_t id) const;
+
+	/*
+	  return true if current mission item is a vtol landing
+	 */
+	bool is_vtol_land(uint16_t id) const;
 
     // calculate a stopping distance for fixed-wing to vtol transitions
     float stopping_distance(void);
@@ -549,6 +567,7 @@ private:
         OPTION_MISSION_LAND_FW_APPROACH=(1<<4),
         OPTION_FS_QRTL=(1<<5),
         OPTION_IDLE_GOV_MANUAL=(1<<6),
+		//OPTION_ALLOW_VTOL_LOITER=(1<<7),
     };
 
     AP_Float takeoff_failure_scalar;
@@ -558,15 +577,6 @@ private:
 
     float last_land_final_agl;
 
-    /*
-      return true if current mission item is a vtol takeoff
-     */
-    bool is_vtol_takeoff(uint16_t id) const;
-
-    /*
-      return true if current mission item is a vtol landing
-     */
-    bool is_vtol_land(uint16_t id) const;
 
 #if QAUTOTUNE_ENABLED
     // qautotune mode

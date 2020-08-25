@@ -394,7 +394,7 @@ void AC_AttitudeControl_Multi::rate_controller_run()
 	Vector3f e_att = get_att_err();
 	float eroll = e_att.x;
 
-	float dedroll = _d_phi_d - d_phi;
+
 	float rc = 1 / (M_2PI * 10);
 	float alpha = _dt / (_dt + rc);
 
@@ -402,12 +402,10 @@ void AC_AttitudeControl_Multi::rate_controller_run()
 	_d_phi_d += alpha * (_rate_target_ang_vel.x - _d_phi_d);
 	_dedroll += alpha * ((_d_phi_d - d_phi) - _dedroll);
 
-
-
 	float  Sat1, Sat2, Sat3, Sat4;
 
 	//      _sat_roll = (_Ix/(GRAVITY_MSS*10000))*(saturation(_Kpy*(ey), 10)  + saturation(_Kdy*dey, 5) + saturation(_Kpphi*eroll, 2)  + saturation(_Kpdphi*dedroll, 0.5));
-	//_sat_roll =  ((saturation(_Kpphi*eroll, 0.5)  + saturation(_Kpdphi*_dedroll, 0.3))+ _actuator_sysid.x)/10;
+	_sat_roll =  ((saturation(_Kpphi*eroll, 0.5)  + saturation(_Kpdphi*_dedroll, 0.3))+ _actuator_sysid.x)/10;
 
 
 	Sat1 = saturation(_Kpy*(ey), 1);
@@ -437,8 +435,8 @@ void AC_AttitudeControl_Multi::rate_controller_run()
                                                 (double)Sat4,
 												y,
 												y_d,
-												_dedroll,
-												dedroll);
+												dy,
+												dy_d);
 
 //    }
 

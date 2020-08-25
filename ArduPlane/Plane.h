@@ -1110,6 +1110,8 @@ public:
     void failsafe_check(void);
     bool set_target_location(const Location& target_loc) override;
     bool get_target_location(Location& target_loc) override;
+    void sanitize_for_vtol_loiter(Location cmdloc){cmdloc.sanitize(current_loc);};
+    void set_next_WP_Vtol_loiter(Location cmdloc){set_next_WP(cmdloc);};
 };
 
 extern Plane plane;

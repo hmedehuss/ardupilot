@@ -269,6 +269,8 @@ bool Plane::verify_command(const AP_Mission::Mission_Command& cmd)        // Ret
             return quadplane.verify_vtol_land();
         }
 
+            return quadplane.verify_vtol_loiter(cmd);
+
     // Conditional commands
 
     case MAV_CMD_CONDITION_DELAY:
