@@ -1,4 +1,5 @@
 #include "Plane.h"
+#include <AP_Logger/AP_Logger.h>
 
 const AP_Param::GroupInfo QuadPlane::var_info[] = {
 
@@ -3282,9 +3283,18 @@ void QuadPlane::update_throttle_mix(void)
     Vector3f accel_ef = ahrs.get_accel_ef_blended();
     accel_ef.z += GRAVITY_MSS;
     throttle_mix_accel_ef_filter.apply(accel_ef, plane.scheduler.get_loop_period_s());
+    int i =0;
+    if (in_transition()) {
+    	i=1;
+    }
+
+    AP::logger().Write("MDD", "TimeUS,Mdd", "QB",
+                         AP_HAL::micros64(),
+						 i);
 
     // transition will directly manage the mix
     if (in_transition()) {
+    	i=1;
       return;
     }
 
