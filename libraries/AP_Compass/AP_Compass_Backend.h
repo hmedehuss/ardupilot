@@ -21,10 +21,6 @@
 
 #include "AP_Compass.h"
 
-#ifndef HAL_MSP_COMPASS_ENABLED
-#define HAL_MSP_COMPASS_ENABLED HAL_MSP_SENSORS_ENABLED
-#endif
-
 class Compass;  // forward declaration
 class AP_Compass_Backend
 {
@@ -65,9 +61,6 @@ public:
         DEVTYPE_RM3100 = 0x11,
     };
 
-#if HAL_MSP_COMPASS_ENABLED
-    virtual void handle_msp(const MSP::msp_compass_data_message_t &pkt) {}
-#endif
 
 protected:
 

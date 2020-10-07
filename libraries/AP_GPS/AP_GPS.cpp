@@ -35,7 +35,6 @@
 #include "AP_GPS_SIRF.h"
 #include "AP_GPS_UBLOX.h"
 #include "AP_GPS_MAV.h"
-#include "AP_GPS_MSP.h"
 #include "GPS_Backend.h"
 
 #if HAL_ENABLE_LIBUAVCAN_DRIVERS
@@ -48,9 +47,7 @@
 #include <AP_Logger/AP_Logger.h>
 
 #define GPS_RTK_INJECT_TO_ALL 127
-#ifndef GPS_MAX_RATE_MS
 #define GPS_MAX_RATE_MS 200 // maximum value of rate_ms (i.e. slowest update rate) is 5hz or 200ms
-#endif
 #define GPS_BAUD_TIME_MS 1200
 #define GPS_TIMEOUT_MS 4000u
 
@@ -76,7 +73,7 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     // @Param: TYPE
     // @DisplayName: GPS type
     // @Description: GPS type
-    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:UAVCAN,10:SBF,11:GSOF,13:ERB,14:MAV,15:NOVA,16:HemisphereNMEA,17:uBlox-MovingBaseline-Base,18:uBlox-MovingBaseline-Rover,19:MSP
+    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:UAVCAN,10:SBF,11:GSOF,13:ERB,14:MAV,15:NOVA,16:HemisphereNMEA,17:uBlox-MovingBaseline-Base,18:uBlox-MovingBaseline-Rover
     // @RebootRequired: True
     // @User: Advanced
     AP_GROUPINFO("TYPE",    0, AP_GPS, _type[0], HAL_GPS_TYPE_DEFAULT),
@@ -85,7 +82,7 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     // @Param: TYPE2
     // @DisplayName: 2nd GPS type
     // @Description: GPS type of 2nd GPS
-    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:UAVCAN,10:SBF,11:GSOF,13:ERB,14:MAV,15:NOVA,16:HemisphereNMEA,17:uBlox-MovingBaseline-Base,18:uBlox-MovingBaseline-Rover,19:MSP
+    // @Values: 0:None,1:AUTO,2:uBlox,3:MTK,4:MTK19,5:NMEA,6:SiRF,7:HIL,8:SwiftNav,9:UAVCAN,10:SBF,11:GSOF,13:ERB,14:MAV,15:NOVA,16:HemisphereNMEA,17:uBlox-MovingBaseline-Base,18:uBlox-MovingBaseline-Rover
     // @RebootRequired: True
     // @User: Advanced
     AP_GROUPINFO("TYPE2",   1, AP_GPS, _type[1], 0),
@@ -361,7 +358,6 @@ bool AP_GPS::needs_uart(GPS_Type type) const
     case GPS_TYPE_HIL:
     case GPS_TYPE_UAVCAN:
     case GPS_TYPE_MAV:
-    case GPS_TYPE_MSP:
         return false;
     default:
         break;
@@ -533,12 +529,6 @@ void AP_GPS::detect_instance(uint8_t instance)
         goto found_gps;
 #endif
         return; // We don't do anything here if UAVCAN is not supported
-#if HAL_MSP_GPS_ENABLED
-    case GPS_TYPE_MSP:
-        dstate->auto_detected_baud = false; // specified, not detected
-        new_gps = new AP_GPS_MSP(*this, state[instance], nullptr);
-        goto found_gps;
-#endif
     default:
         break;
     }
@@ -679,6 +669,9 @@ found_gps:
         timing[instance].last_message_time_ms = now;
         timing[instance].delta_time_ms = GPS_TIMEOUT_MS;
         new_gps->broadcast_gps_type();
+        if (instance == 1) {
+            has_had_second_instance = true;
+        }
     }
 }
 
@@ -1041,17 +1034,6 @@ void AP_GPS::handle_msg(const mavlink_message_t &msg)
     }
 }
 
-#if HAL_MSP_GPS_ENABLED
-void AP_GPS::handle_msp(const MSP::msp_gps_data_message_t &pkt)
-{
-    for (uint8_t i=0; i<num_instances; i++) {
-        if (drivers[i] != nullptr && _type[i] == GPS_TYPE_MSP) {
-            drivers[i]->handle_msp(pkt);
-        }
-    }
-}
-#endif // HAL_MSP_GPS_ENABLED
-
 /*
   set HIL (hardware in the loop) status for a GPS instance
  */
@@ -1197,8 +1179,8 @@ void AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
 #if GPS_MAX_RECEIVERS > 1
 void AP_GPS::send_mavlink_gps2_raw(mavlink_channel_t chan)
 {
-    // always send the message if 2nd GPS is configured
-    if (_type[1] == GPS_TYPE_NONE) {
+    // always send the message once we've ever seen the GPS
+    if (!has_had_second_instance) {
         return;
     }
 
@@ -1827,15 +1809,6 @@ bool AP_GPS::logging_failed(void) const {
     }
 
     return false;
-}
-
-// get iTOW, if supported, zero otherwie
-uint32_t AP_GPS::get_itow(uint8_t instance) const
-{
-    if (instance >= GPS_MAX_RECEIVERS || drivers[instance] == nullptr) {
-        return 0;
-    }
-    return drivers[instance]->get_last_itow();
 }
 
 namespace AP {

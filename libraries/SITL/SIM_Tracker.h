@@ -27,8 +27,7 @@ namespace SITL {
  */
 class Tracker : public Aircraft {
 public:
-    using Aircraft::Aircraft;
-
+    Tracker(const char *frame_str);
     void update(const struct sitl_input &input) override;
 
     /* static object creator */
@@ -45,7 +44,7 @@ private:
     const float yaw_range = 170;
     const float zero_yaw = 270;  // yaw direction at startup
     const float zero_pitch = 10; // pitch at startup
-    uint64_t last_debug_us;
+    uint64_t last_debug_us = 0;
 
     float pitch_input;
     float yaw_input;

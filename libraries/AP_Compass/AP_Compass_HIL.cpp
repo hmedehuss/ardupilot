@@ -54,7 +54,6 @@ AP_Compass_HIL::init(void)
         if (!register_compass(dev_id, _compass_instance[i])) {
             return false;
         }
-        set_dev_id(_compass_instance[i], dev_id);
     }
     return true;
 }

@@ -21,8 +21,6 @@
 #include <AP_CANManager/AP_CANDriver.h>
 #include <AP_HAL/Semaphores.h>
 
-#include <AP_Param/AP_Param.h>
-
 #include "piccolo_protocol/ESCPackets.h"
 #include "piccolo_protocol/LegacyESCPackets.h"
 
@@ -35,10 +33,6 @@
 #endif
 
 #if HAL_PICCOLO_CAN_ENABLE
-
-#define PICCOLO_MSG_RATE_HZ_MIN 1
-#define PICCOLO_MSG_RATE_HZ_MAX 500
-#define PICCOLO_MSG_RATE_HZ_DEFAULT 50
 
 class AP_PiccoloCAN : public AP_CANDriver
 {
@@ -67,8 +61,6 @@ public:
     AP_PiccoloCAN(const AP_PiccoloCAN &other) = delete;
     AP_PiccoloCAN &operator=(const AP_PiccoloCAN&) = delete;
 
-    static const struct AP_Param::GroupInfo var_info[];
-
     // Return PiccoloCAN from @driver_index or nullptr if it's not ready or doesn't exist
     static AP_PiccoloCAN *get_pcan(uint8_t driver_index);
 
@@ -81,9 +73,6 @@ public:
 
     // send ESC telemetry messages over MAVLink
     void send_esc_telemetry_mavlink(uint8_t mav_chan);
-
-    // return true if a particular ESC is 'active' on the Piccolo interface
-    bool is_esc_channel_active(uint8_t chan);
 
     // return true if a particular ESC has been detected
     bool is_esc_present(uint8_t chan, uint64_t timeout_ms = 2000);
@@ -155,10 +144,6 @@ private:
         uint64_t last_rx_msg_timestamp = 0;    //! Time of most recently received message
 
     } _esc_info[PICCOLO_CAN_MAX_NUM_ESC];
-
-    // Piccolo CAN parameters
-    AP_Int32 _esc_bm;       //! ESC selection bitmask
-    AP_Int16 _esc_hz;       //! ESC update rate (Hz)
 
 };
 

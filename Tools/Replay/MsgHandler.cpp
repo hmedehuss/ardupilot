@@ -17,16 +17,6 @@ char *xstrdup(const char *string)
     return ret;
 }
 
-char *xcalloc(uint8_t count, uint32_t len)
-{
-    char *ret = (char*)calloc(count, len);
-    if (ret == nullptr) {
-        perror("calloc");
-        fatal("calloc failed");
-    }
-    return ret;
-}
-
 void MsgHandler::add_field_type(char type, size_t size)
 {
     size_for_type_table[(type > 'A' ? (type-'A') : (type-'a'))] = size;
@@ -91,31 +81,22 @@ void MsgHandler::add_field(const char *_label, uint8_t _type, uint8_t _offset,
     next_field++;
 }
 
-char *get_string_field(char *field, uint8_t fieldlen)
-{
-    char *ret = xcalloc(1, fieldlen+1);
-    memcpy(ret, field, fieldlen);
-    return ret;
-}
-
 void MsgHandler::parse_format_fields()
 {
-    char *labels = get_string_field(f.labels, sizeof(f.labels));
+    char *labels = xstrdup(f.labels);
     char * arg = labels;
     uint8_t label_offset = 0;
     char *next_label;
     uint8_t msg_offset = 3; // 3 bytes for the header
 
-    char *format = get_string_field(f.format, ARRAY_SIZE(f.format));
-
     while ((next_label = strtok(arg, ",")) != NULL) {
-        if (label_offset > strlen(format)) {
-            free(labels);
-            printf("too few field times for labels %s (format=%s) (labels=%s)\n",
-                   f.name, format, labels);
-            exit(1);
-        }
-        uint8_t field_type = format[label_offset];
+	if (label_offset > strlen(f.format)) {
+	    free(labels);
+	    printf("too few field times for labels %s (format=%s) (labels=%s)\n",
+		   f.name, f.format, f.labels);
+	    exit(1);
+	}
+        uint8_t field_type = f.format[label_offset];
         uint8_t length = size_for_type(field_type);
         add_field(next_label, field_type, msg_offset, length);
         arg = NULL;
@@ -123,13 +104,12 @@ void MsgHandler::parse_format_fields()
         label_offset++;
     }
 
-    if (label_offset != strlen(format)) {
+    if (label_offset != strlen(f.format)) {
         printf("too few labels for format (format=%s) (labels=%s)\n",
-               format, labels);
+               f.format, f.labels);
     }
 
     free(labels);
-    free(format);
 }
 
 bool MsgHandler::field_value(uint8_t *msg, const char *label, char *ret, uint8_t retlen)
@@ -179,7 +159,7 @@ bool MsgHandler::field_value(uint8_t *msg, const char *label, Vector3f &ret)
 }
 
 
-void MsgHandler::string_for_labels(char *buffer, uint32_t bufferlen)
+void MsgHandler::string_for_labels(char *buffer, uint bufferlen)
 {
     memset(buffer, '\0', bufferlen);
     bufferlen--;

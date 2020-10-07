@@ -10,9 +10,7 @@
 /*
   allow double maths on Linux and SITL to avoid problems with system headers
  */
-  #if !defined(ALLOW_DOUBLE_MATH_FUNCTIONS)
-    #define ALLOW_DOUBLE_MATH_FUNCTIONS
-  #endif
+#define ALLOW_DOUBLE_MATH_FUNCTIONS
 #endif
 
 // we need to include math.h here for newer compilers (eg. g++ 7.3.1 for stm32)

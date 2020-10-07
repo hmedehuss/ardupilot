@@ -37,7 +37,7 @@ def wait_time(mav, simtime):
 
 cmd = 'sim_vehicle.py -j4 -D -L KSFO -S5'
 mavproxy = pexpect.spawn(cmd, logfile=sys.stdout, timeout=30)
-mavproxy.expect("ArduPilot Ready")
+mavproxy.expect("Ready to FLY")
 
 mav = mavutil.mavlink_connection('127.0.0.1:14550')
 

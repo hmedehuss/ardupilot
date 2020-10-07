@@ -171,8 +171,10 @@ public:
     // Methods
     virtual void update(bool skip_ins_update=false) = 0;
 
-    // returns false if we fail arming checks, in which case the buffer will be populated with a failure message
-    virtual bool pre_arm_check(char *failure_msg, uint8_t failure_msg_len) const = 0;
+    // report any reason for why the backend is refusing to initialise
+    virtual const char *prearm_failure_reason(void) const {
+        return nullptr;
+    }
 
     // check all cores providing consistent attitudes for prearm checks
     virtual bool attitudes_consistent(char *failure_msg, const uint8_t failure_msg_len) const { return true; }
@@ -479,6 +481,8 @@ public:
 
     // is the AHRS subsystem healthy?
     virtual bool healthy(void) const = 0;
+
+    virtual bool prearm_healthy(void) const { return healthy(); }
 
     // true if the AHRS has completed initialisation
     virtual bool initialised(void) const {
