@@ -167,6 +167,7 @@ private:
     bool _read_rc_sitl_input();
     void _fdm_input_local(void);
     void _output_to_flightgear(void);
+    void _output_motor_command_to_UDP(void);
     void _simulator_servos(struct sitl_input &input);
     void _simulator_output(bool synthetic_clock_mode);
     uint16_t _airspeed_sensor(float airspeed);

@@ -560,6 +560,14 @@ void SITL_State::_output_to_flightgear(void)
 }
 
 /*
+  output motor command to UDP port
+ */
+void SITL_State::_output_motor_command_to_UDP(void)
+{
+	// printf("Hey !!! It's me _output_motor_command_to_UDP !!!!!!!!!!!!!!!");
+}
+
+/*
   get FDM input from a local model
  */
 void SITL_State::_fdm_input_local(void)
@@ -672,6 +680,8 @@ void SITL_State::_fdm_input_local(void)
     if (_sitl && _use_fg_view) {
         _output_to_flightgear();
     }
+
+    _output_motor_command_to_UDP();
 
     // update simulation time
     if (_sitl) {
