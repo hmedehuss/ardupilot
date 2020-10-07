@@ -70,11 +70,6 @@ struct sitl_fdm {
     } scanner;
 
     float rangefinder_m[RANGEFINDER_MAX_INSTANCES];
-
-    struct {
-        float speed;
-        float direction;
-    } wind_vane_apparent;
 };
 
 // number of rc output channels
@@ -170,7 +165,6 @@ public:
     AP_Vector3f mag_diag[HAL_COMPASS_MAX_SENSORS];  // diagonal corrections
     AP_Vector3f mag_offdiag[HAL_COMPASS_MAX_SENSORS];  // off-diagonal corrections
     AP_Int8 mag_orient[HAL_COMPASS_MAX_SENSORS];   // external compass orientation
-    AP_Int8 mag_fail[HAL_COMPASS_MAX_SENSORS];   // fail magnetometer, 1 for no data, 2 for freeze
     AP_Float servo_speed; // servo speed in seconds
 
     AP_Float sonar_glitch;// probablility between 0-1 that any given sonar sample will read as max distance
@@ -216,7 +210,7 @@ public:
     AP_Int8  baro_count; // number of simulated baros to create
     AP_Int8  imu_count; // number of simulated IMUs to create
     AP_Int32 loop_delay; // extra delay to add to every loop
-    AP_Float mag_scaling[MAX_CONNECTED_MAGS]; // scaling factor
+    AP_Float mag_scaling; // scaling factor on first compasses
     AP_Int32 mag_devid[MAX_CONNECTED_MAGS]; // Mag devid
     AP_Float buoyancy; // submarine buoyancy in Newtons
     AP_Int16 loop_rate_hz;
@@ -351,8 +345,6 @@ public:
 
     uint16_t irlock_port;
 
-    time_t start_time_UTC;
-
     void simstate_send(mavlink_channel_t chan);
 
     void Log_Write_SIMSTATE();
@@ -408,9 +400,6 @@ public:
     // get the rangefinder reading for the desired instance, returns -1 for no data
     float get_rangefinder(uint8_t instance);
 
-    // get the apparent wind speed and direction as set by external physics backend
-    float get_apparent_wind_dir(){return state.wind_vane_apparent.direction;}
-    float get_apparent_wind_spd(){return state.wind_vane_apparent.speed;}
 };
 
 } // namespace SITL

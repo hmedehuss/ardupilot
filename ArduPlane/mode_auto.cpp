@@ -23,7 +23,7 @@ bool ModeAuto::_enter()
         }
     }
 
-#if HAL_SOARING_ENABLED
+#if SOARING_ENABLED == ENABLED
     plane.g2.soaring_controller.init_cruising();
 #endif
 

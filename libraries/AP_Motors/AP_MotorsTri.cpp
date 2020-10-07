@@ -35,14 +35,13 @@ void AP_MotorsTri::init(motor_frame_class frame_class, motor_frame_type frame_ty
     motor_enabled[AP_MOTORS_MOT_2] = true;
     motor_enabled[AP_MOTORS_MOT_4] = true;
 
-#if !APM_BUILD_TYPE(APM_BUILD_ArduPlane) // Tilt Rotors do not need a yaw servo
     // find the yaw servo
-    if (!SRV_Channels::get_channel_for(SRV_Channel::k_motor7, AP_MOTORS_CH_TRI_YAW)) {
+    _yaw_servo = SRV_Channels::get_channel_for(SRV_Channel::k_motor7, AP_MOTORS_CH_TRI_YAW);
+    if (!_yaw_servo) {
         gcs().send_text(MAV_SEVERITY_ERROR, "MotorsTri: unable to setup yaw channel");
         // don't set initialised_ok
         return;
     }
-#endif
 
     // allow mapping of motor7
     add_motor_num(AP_MOTORS_CH_TRI_YAW);
@@ -55,7 +54,7 @@ void AP_MotorsTri::init(motor_frame_class frame_class, motor_frame_type frame_ty
     }
 
     // record successful initialisation if what we setup was the desired frame_class
-    set_initialised_ok(frame_class == MOTOR_FRAME_TRI);
+    _flags.initialised_ok = (frame_class == MOTOR_FRAME_TRI);
 }
 
 // set frame class (i.e. quad, hexa, heli) and type (i.e. x, plus)
@@ -68,7 +67,7 @@ void AP_MotorsTri::set_frame_class_and_type(motor_frame_class frame_class, motor
         _pitch_reversed = false;
     }
 
-    set_initialised_ok((frame_class == MOTOR_FRAME_TRI) && SRV_Channels::function_assigned(SRV_Channel::k_motor7));
+    _flags.initialised_ok = (frame_class == MOTOR_FRAME_TRI);
 }
 
 // set update rate to motors - a value in hertz

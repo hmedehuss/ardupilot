@@ -13,7 +13,7 @@ extern const AP_HAL::HAL& hal;
    Monitor magnetometer innovations to see if the heading is good enough to use GPS
    Return true if all criteria pass for 10 seconds
 
-   We also record the failure reason so that pre_arm_check()
+   We also record the failure reason so that prearm_failure_reason()
    can give a good report to the user on why arming is failing
 */
 void NavEKF3_core::calcGpsGoodToAlign(void)

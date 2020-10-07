@@ -19,7 +19,6 @@
 #include "AP_HAL_ChibiOS.h"
 #include "Scheduler.h"
 #include "Util.h"
-#include "GPIO.h"
 
 #include <AP_HAL_ChibiOS/UARTDriver.h>
 #include <AP_HAL_ChibiOS/AnalogIn.h>
@@ -416,10 +415,6 @@ void Scheduler::_monitor_thread(void *arg)
     }
 #endif // HAL_NO_LOGGING
 
-#ifndef IOMCU_FW
-    // setup GPIO interrupt quotas
-    hal.gpio->timer_tick();
-#endif
     }
 }
 #endif // HAL_NO_MONITOR_THREAD

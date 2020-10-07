@@ -44,12 +44,19 @@ protected:
 
 private:
 
-    bool check_pin();
-    void check_stop_pin();
-    bool check_pins();
-    uint8_t last_stop_pin = -1;
+    int8_t last_pin; // last pin used for reading pwm (used to recognise change in pin assignment)
 
-    AP_HAL::PWMSource pwm_source;
+    // the following three members are updated by the interrupt handler
+    uint32_t irq_value_us;         // some of calculated pwm values (irq copy)
+    uint16_t irq_sample_count;     // number of pwm values in irq_value_us (irq copy)
+    uint32_t irq_pulse_start_us;   // system time of start of pulse
+
+    void irq_handler(uint8_t pin, bool pin_high, uint32_t timestamp_us);
+
+    void check_pin();
+    void check_stop_pin();
+    void check_pins();
+    uint8_t last_stop_pin = -1;
 
     float &estimated_terrain_height;
 

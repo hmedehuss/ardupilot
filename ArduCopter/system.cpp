@@ -223,6 +223,8 @@ void Copter::init_ardupilot()
     // disable safety if requested
     BoardConfig.init_safety();
 
+    hal.console->printf("\nReady to FLY ");
+
     // flag that initialisation has completed
     ap.initialised = true;
 }

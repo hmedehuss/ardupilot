@@ -24,7 +24,8 @@
 using namespace SITL;
 
 MultiCopter::MultiCopter(const char *frame_str) :
-    Aircraft(frame_str)
+    Aircraft(frame_str),
+    frame(nullptr)
 {
     mass = 1.5f;
 

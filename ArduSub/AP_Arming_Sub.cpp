@@ -65,9 +65,12 @@ bool AP_Arming_Sub::ins_checks(bool display_failure)
     // additional sub-specific checks
     if ((checks_to_perform & ARMING_CHECK_ALL) ||
         (checks_to_perform & ARMING_CHECK_INS)) {
-        char failure_msg[50] = {};
-        if (!AP::ahrs().pre_arm_check(failure_msg, sizeof(failure_msg))) {
-            check_failed(ARMING_CHECK_INS, display_failure, "AHRS: %s", failure_msg);
+        if (!AP::ahrs().prearm_healthy()) {
+            const char *reason = AP::ahrs().prearm_failure_reason();
+            if (reason == nullptr) {
+                reason = "AHRS not healthy";
+            }
+            check_failed(ARMING_CHECK_INS, display_failure, "%s", reason);
             return false;
         }
     }

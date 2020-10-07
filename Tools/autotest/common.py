@@ -26,7 +26,6 @@ from pymavlink import mavextra
 from pymavlink import mavparm
 
 from pysim import util, vehicleinfo
-from io import StringIO
 
 # a list of pexpect objects to read while waiting for
 # messages. This keeps the output to stdout flowing
@@ -134,7 +133,6 @@ class Context(object):
         self.parameters = []
         self.sitl_commandline_customised = False
         self.message_hooks = []
-        self.collections = {}
 
 # https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
 class TeeBoth(object):
@@ -830,19 +828,12 @@ class AutoTest(ABC):
             self.force_ahrs_type = int(self.force_ahrs_type)
         self.logs_dir = logs_dir
         self.timesync_number = 137
-        self.last_progress_sent_as_statustext = None
 
-    def progress(self, text, send_statustext=True):
+    def progress(self, text):
         """Display autotest progress text."""
         global __autotest__
         delta_time = time.time() - __autotest__.start_time
-        formatted_text = "AT-%06.1f: %s" % (delta_time,text)
-        print(formatted_text)
-        if (send_statustext and
-            self.mav is not None and
-            self.last_progress_sent_as_statustext != text):
-                self.send_statustext(formatted_text)
-                self.last_progress_sent_as_statustext = text
+        print("AT-%06.1f: %s" % (delta_time,text))
 
     # following two functions swiped from autotest.py:
     @staticmethod
@@ -978,6 +969,7 @@ class AutoTest(ABC):
             self.params = [self.params]
         for x in self.params:
             self.repeatedly_apply_parameter_file(os.path.join(testdir, x))
+        self.set_parameter('LOG_REPLAY', 1)
         self.set_parameter('LOG_DISARMED', 1)
         if self.force_ahrs_type is not None:
             if self.force_ahrs_type == 2:
@@ -1089,7 +1081,7 @@ class AutoTest(ABC):
                 raise AutoTestTimeoutException("Did not detect reboot")
             try:
                 current_bootcount = self.get_parameter('STAT_BOOTCNT', timeout=1, attempts=3)
-                self.progress("current=%s required=%u" % (str(current_bootcount), required_bootcount))
+                print("current=%s required=%u" % (str(current_bootcount), required_bootcount))
                 if current_bootcount == required_bootcount:
                     break
             except NotAchievedException:
@@ -1661,7 +1653,7 @@ class AutoTest(ABC):
             rate = "instantly"
         else:
             rate = "%f/s" % (count/float(tdelta),)
-        self.progress("Drained %u bytes from mav (%s).  These were unparsed." % (count, rate), send_statustext=False)
+        self.progress("Drained %u bytes from mav (%s).  These were unparsed." % (count, rate))
         if freshen_sim_time:
             self.get_sim_time()
 
@@ -1680,7 +1672,7 @@ class AutoTest(ABC):
         else:
             rate = "%f/s" % (count/float(tdelta),)
 
-        self.progress("Drained %u messages from mav (%s)" % (count, rate), send_statustext=False)
+        self.progress("Drained %u messages from mav (%s)" % (count, rate))
 
     def do_timesync_roundtrip(self):
         self.progress("Doing timesync roundtrip")
@@ -2230,14 +2222,10 @@ class AutoTest(ABC):
     def install_message_hook_context(self, hook):
         '''installs a message hook which will be removed when the context goes
         away'''
-        if self.mav is None:
-            return
         self.mav.message_hooks.append(hook)
         self.context_get().message_hooks.append(hook)
 
     def remove_message_hook(self, hook):
-        if self.mav is None:
-            return
         oldlen = len(self.mav.message_hooks)
         self.mav.message_hooks = list(filter(lambda x : x != hook,
                                         self.mav.message_hooks))
@@ -3010,13 +2998,7 @@ class AutoTest(ABC):
         old_value = self.get_parameter(name, attempts=2)
         for i in range(1, retries+2):
             self.send_set_parameter(name, value)
-            # ArduPilot instantly volunteers the new value:
-            m = self.mav.recv_match(type='PARAM_VALUE', blocking=True, timeout=5)
-            if verbose:
-                self.progress("set_parameter(%s): %s" % (name, str(m), ))
-            if m is None:
-                raise NotAchievedException("Did not receive volunteered parameter %s" % str(name))
-            returned_value = m.param_value
+            returned_value = self.get_parameter(name, verbose=verbose)
             delta = float(value) - returned_value
             if abs(delta) < epsilon:
                 # yes, near-enough-to-equal.
@@ -3037,9 +3019,7 @@ class AutoTest(ABC):
         while attempts > 0:
             if verbose:
                 self.progress("Sending param_request_read for (%s)" % name)
-            # we MUST parse here or collections fail where we need
-            # them to work!
-            self.drain_mav(quiet=True)
+            self.drain_mav_unparsed(quiet=True)
             tstart = self.get_sim_time()
             encname = name
             if sys.version_info.major >= 3 and type(encname) != bytes:
@@ -3093,38 +3073,7 @@ class AutoTest(ABC):
 
     def context_push(self):
         """Save a copy of the parameters."""
-        context = Context()
-        self.contexts.append(context)
-        # add a message hook so we can collect messages conveniently:
-        def mh(mav, m):
-            t = m.get_type()
-            if t in context.collections:
-                print("m=%s" % str(m))
-                context.collections[t].append(m)
-        self.install_message_hook_context(mh)
-
-    def context_collect(self, msg_type):
-        '''start collecting messages of type msg_type into context collection'''
-        context = self.context_get()
-        if msg_type in context.collections:
-            return
-        context.collections[msg_type] = []
-
-    def context_clear_collection(self, msg_type):
-        '''clear collection of message type msg_type'''
-        context = self.context_get()
-        if msg_type not in context.collections:
-            raise NotAchievedException("Not collecting (%s)" % str(msg_type))
-        context.collections[msg_type] = []
-
-    def context_stop_collecting(self, msg_type):
-        '''stop collecting messages of type msg_type in context collection.  Returns the collected messages'''
-        context = self.context_get()
-        if msg_type not in context.collections:
-            raise Exception("Not collecting %s" % str(msg_type))
-        ret = context.collections[msg_type]
-        del context.collections[msg_type]
-        return ret
+        self.contexts.append(Context())
 
     def context_pop(self):
         """Set parameters to origin values in reverse order."""
@@ -3973,8 +3922,6 @@ Also, ignores heartbeats not from our target system'''
         tstart = time.time()
         while True:
             if time.time() - tstart > orig_timeout:
-                if not self.sitl_is_running():
-                    self.progress("SITL is not running")
                 raise AutoTestTimeoutException("Did not receive heartbeat")
             m = self.mav.wait_heartbeat(*args, **x)
             if m is None:
@@ -4063,7 +4010,7 @@ Also, ignores heartbeats not from our target system'''
     def wait_text(self, *args, **kwargs):
         self.wait_statustext(*args, **kwargs)
 
-    def wait_statustext(self, text, timeout=20, the_function=None, check_context=False):
+    def wait_statustext(self, text, timeout=20, the_function=None):
         """Wait for a specific STATUSTEXT."""
 
         # Statustexts are often triggered by something we've just
@@ -4073,15 +4020,6 @@ Also, ignores heartbeats not from our target system'''
         # a new SYSTEM_TIME message), so we install a message hook
         # which checks all incoming messages.
         self.progress("Waiting for text : %s" % text.lower())
-        if check_context:
-            c = self.context_get()
-            if "STATUSTEXT" not in c.collections:
-                raise NotAchievedException("Asked to check context but it isn't collecting!")
-            for statustext in [x.text for x in c.collections["STATUSTEXT"]]:
-                if text.lower() in statustext.lower():
-                    self.progress("Found expected text in collection: %s" % text.lower())
-                    return
-
         global statustext_found
         statustext_found = False
         def mh(mav, m):
@@ -4089,20 +4027,17 @@ Also, ignores heartbeats not from our target system'''
             if m.get_type() != "STATUSTEXT":
                 return
             if text.lower() in m.text.lower():
-                self.progress("Received expected text: %s" % m.text.lower())
+                self.progress("Received expected text : %s" % m.text.lower())
                 statustext_found = True
-        self.install_message_hook(mh)
-        try:
-            tstart = self.get_sim_time()
-            while self.get_sim_time_cached() < tstart + timeout:
-                if statustext_found:
-                    return
-                if the_function is not None:
-                    the_function()
-                m = self.mav.recv_match(type='STATUSTEXT', blocking=True, timeout=0.1)
-        finally:
-            self.remove_message_hook(mh)
-        raise AutoTestTimeoutException("Failed to receive text: %s" %
+        self.install_message_hook_context(mh)
+        tstart = self.get_sim_time()
+        while self.get_sim_time_cached() < tstart + timeout:
+            if statustext_found:
+                return
+            if the_function is not None:
+                the_function()
+            m = self.mav.recv_match(type='STATUSTEXT', blocking=True, timeout=0.1)
+        raise AutoTestTimeoutException("Failed to received text : %s" %
                                        text.lower())
 
     def get_mavlink_connection_going(self):
@@ -4182,6 +4117,7 @@ Also, ignores heartbeats not from our target system'''
         tee = TeeBoth(test_output_filename, 'w', self.mavproxy_logfile)
 
         prettyname = "%s (%s)" % (name, desc)
+        self.send_statustext(prettyname)
         self.start_test(prettyname)
         self.set_current_test_name(name)
         old_contexts_length = len(self.contexts)
@@ -4314,7 +4250,7 @@ Also, ignores heartbeats not from our target system'''
         self.expect_list_add(self.sitl)
 
     def sitl_is_running(self):
-        return self.sitl.isalive()
+        return self.sitl.is_alive()
 
     def init(self):
         """Initilialize autotest feature."""
@@ -4349,12 +4285,6 @@ Also, ignores heartbeats not from our target system'''
         self.wait_heartbeat()
         self.progress("Sim time: %f" % (self.get_sim_time(),))
         self.apply_defaultfile_parameters()
-
-        if not self.sitl_is_running():
-            # we run this just to make sure exceptions are likely to
-            # work OK.
-            raise NotAchievedException("SITL is not running")
-        self.progress("SITL is running")
 
         self.progress("Ready to start testing!")
 
@@ -4854,13 +4784,12 @@ Also, ignores heartbeats not from our target system'''
                 self.set_parameter("FRAME_CLASS", 1)
             self.drain_mav()
             self.progress("Setting SITL Magnetometer model value")
-            self.set_parameter("COMPASS_AUTO_ROT", 0)
-            # MAG_ORIENT = 4
-            # self.set_parameter("SIM_MAG_ORIENT", MAG_ORIENT)
-            # for count in range(2, compass_count + 1):
-            #     self.set_parameter("SIM_MAG%d_ORIENT" % count, MAG_ORIENT * (count % 41))
-            #     # set compass external to check that orientation is found and auto set
-            #     self.set_parameter("COMPASS_EXTERN%d" % count, 1)
+            MAG_ORIENT = 4
+            self.set_parameter("SIM_MAG_ORIENT", MAG_ORIENT)
+            for count in range(2, compass_count + 1):
+                self.set_parameter("SIM_MAG%d_ORIENT" % count, MAG_ORIENT * (count % 41))
+                # set compass external to check that orientation is found and auto set
+                self.set_parameter("COMPASS_EXTERN%d" % count, 1)
             for param_set in params:
                 for param in param_set:
                     (_in, _out, value) = param
@@ -4910,7 +4839,7 @@ Also, ignores heartbeats not from our target system'''
                         if new_pct < reached_pct[cid]:
                             raise NotAchievedException("Mag calibration restart when it shouldn't")
                         reached_pct[cid] = new_pct
-                        self.progress("Calibration progress compass ID %d: %s%%" % (cid, str(reached_pct[cid])))
+                        self.progress("Calibration progress compass ID %d: %s" % (cid, str(reached_pct[cid])))
                         if cid == 0 and 13 <= reached_pct[0] <= 15:
                             self.progress("Request again to start calibration, it shouldn't restart from 0")
                             self.run_cmd(mavutil.mavlink.MAV_CMD_DO_START_MAG_CAL,
@@ -4973,7 +4902,7 @@ Also, ignores heartbeats not from our target system'''
                     new_pct = int(m.completion_pct)
                     if new_pct != reached_pct[cid]:
                         reached_pct[cid] = new_pct
-                        self.progress("Calibration progress compass ID %d: %s%%" % (cid, str(reached_pct[cid])))
+                        self.progress("Calibration progress compass ID %d: %s" % (cid, str(reached_pct[cid])))
                         if cid == 0 and 49 <= reached_pct[0] <= 50:
                             self.progress("Try arming during calibration, should failed")
                             self.try_arm(False, "Compass calibration running")
@@ -4997,15 +4926,9 @@ Also, ignores heartbeats not from our target system'''
                 if m.get_type() == "MAG_CAL_REPORT":
                     if report_get[m.compass_id] == 0:
                         self.progress("Report: %s" % self.dump_message_verbose(m))
-                        param_names = ["SIM_MAG_ORIENT"]
-                        for i in range(2, compass_tnumber+1):
-                            param_names.append("SIM_MAG%u_ORIENT" % i)
-                        for param_name in param_names:
-                            self.progress("%s=%f" % (param_name, self.get_parameter(param_name)))
                         if m.cal_status == mavutil.mavlink.MAG_CAL_SUCCESS:
-                            threshold = 95
-                            if reached_pct[m.compass_id] < threshold:
-                                raise NotAchievedException("Mag calibration report SUCCESS without >=%f%% completion (got %f%%)" % (threshold, reached_pct[m.compass_id]))
+                            if reached_pct[m.compass_id] < 99:
+                                raise NotAchievedException("Mag calibration report SUCCESS without 100%% completion")
                             report_get[m.compass_id] = 1
                         else:
                             raise NotAchievedException(
@@ -5391,168 +5314,23 @@ Also, ignores heartbeats not from our target system'''
             raise ex
 
     def test_dataflash_sitl(self):
-        """Test the basic functionality of block logging"""
         self.context_push()
         ex = None
         try:
-            self.set_parameter("LOG_BACKEND_TYPE", 4)
-            self.set_parameter("LOG_FILE_DSRMROT", 1)
+            self.set_parameter("LOG_BACKEND_TYPE", 5)
             self.reboot_sitl()
-            # First log created here, but we are in chip erase so ignored
+            self.drain_mav() # hopefully draining COMMAND_ACK from that failed arm
             self.mavproxy.send("module load log\n")
+#            self.mavproxy.expect("Loaded module log\n")
             self.mavproxy.send("log erase\n")
-            self.mavproxy.expect("Chip erase complete")
-
-            self.wait_ready_to_arm()
-            if self.is_copter() or self.is_plane():
-                self.set_autodisarm_delay(0)
-            self.arm_vehicle()
-            self.delay_sim_time(5)
-            self.disarm_vehicle()
-            # First log created here
-            self.delay_sim_time(2)
-            self.arm_vehicle()
-            self.delay_sim_time(5)
-            self.disarm_vehicle()
-            # Second log created here
-            self.delay_sim_time(2)
             self.mavproxy.send("log list\n")
-            self.mavproxy.expect("Log ([0-9]+)  numLogs ([0-9]+) lastLog ([0-9]+) size ([0-9]+)", timeout=120)
-            log_num = int(self.mavproxy.match.group(1))
-            numlogs = int(self.mavproxy.match.group(2))
-            lastlog = int(self.mavproxy.match.group(3))
-            size = int(self.mavproxy.match.group(4))
-            if numlogs != 2 or log_num != 1 or size <= 0:
-                raise NotAchievedException("Unexpected log information %d %d %d" % (log_num, numlogs, lastlog))
-            self.progress("Log size: %d" % size)
+            self.mavproxy.expect("Log 1  numLogs 1 lastLog 1 size")
             self.reboot_sitl()
-            # This starts a new log with a time of 0, wait for arm so that we can insert the correct time
-            self.wait_ready_to_arm()
-            # Third log created here
             self.mavproxy.send("log list\n")
-            self.mavproxy.expect("Log 1  numLogs 3 lastLog 3 size")
-
-            # Download second and third logs
-            self.mavproxy.send("log download 2 logs/dataflash-log-002.BIN\n")
-            self.mavproxy.expect("Finished downloading", timeout=120)
-            self.mavproxy.send("log download 3 logs/dataflash-log-003.BIN\n")
-            self.mavproxy.expect("Finished downloading", timeout=120)
-
-            # Erase the logs
-            self.mavproxy.send("log erase\n")
-            self.mavproxy.expect("Chip erase complete")
-
+            self.mavproxy.expect("Log 1  numLogs 2 lastLog 2 size")
         except Exception as e:
             self.progress("Exception (%s) caught" % str(e))
             ex = e
-        self.mavproxy.send("module unload log\n")
-        self.context_pop()
-        self.reboot_sitl()
-        if ex is not None:
-            raise ex
-
-    def validate_log_file(self, logname, header_errors=0):
-        """Validate the contents of a log file"""
-        # read the downloaded log - it must parse without error
-        class Capturing(list):
-            def __enter__(self):
-                self._stderr = sys.stderr
-                sys.stderr = self._stringio = StringIO.StringIO()
-                return self
-            def __exit__(self, *args):
-                self.extend(self._stringio.getvalue().splitlines())
-                del self._stringio    # free up some memory
-                sys.stderr = self._stderr
-
-        with Capturing() as df_output:
-            try:
-                mlog = mavutil.mavlink_connection(logname)
-                while True:
-                    m = mlog.recv_match()
-                    if m is None:
-                        break
-            except Exception as e:
-                raise NotAchievedException("Error reading log file %s: %s" % (logname, str(e)))
-
-        herrors = 0
-
-        for msg in df_output:
-            if msg.startswith("bad header") or msg.startswith("unknown msg type"):
-                herrors = herrors + 1
-
-        if herrors > header_errors:
-            raise NotAchievedException("Error parsing log file %s, %d header errors" % (logname, herrors))
-
-    def test_dataflash_erase(self):
-        """Test that erasing the dataflash chip and creating a new log is error free"""
-        ex = None
-        self.context_push()
-        try:
-            self.set_parameter("LOG_BACKEND_TYPE", 4)
-            self.reboot_sitl()
-            self.mavproxy.send("module load log\n")
-            self.mavproxy.send("log erase\n")
-            self.mavproxy.expect("Chip erase complete")
-            self.set_parameter("LOG_DISARMED", 1)
-            self.delay_sim_time(3)
-            self.set_parameter("LOG_DISARMED", 0)
-            self.mavproxy.send("log download 1 logs/dataflash-log-erase.BIN\n")
-            self.mavproxy.expect("Finished downloading", timeout=120)
-            # read the downloaded log - it must parse without error
-            self.validate_log_file("logs/dataflash-log-erase.BIN")
-
-            self.start_subtest("Test file wrapping results in a valid file")
-            # roughly 4mb
-            self.set_parameter("LOG_FILE_DSRMROT", 1)
-            self.set_parameter("LOG_BITMASK", 131071)
-            self.wait_ready_to_arm()
-            if self.is_copter() or self.is_plane():
-                self.set_autodisarm_delay(0)
-            self.arm_vehicle()
-            self.delay_sim_time(30)
-            self.disarm_vehicle()
-            # roughly 4mb
-            self.arm_vehicle()
-            self.delay_sim_time(30)
-            self.disarm_vehicle()
-            # roughly 9mb, should wrap around
-            self.arm_vehicle()
-            self.delay_sim_time(50)
-            self.disarm_vehicle()
-            # make sure we have finished logging
-            self.delay_sim_time(15)
-            self.mavproxy.send("log list\n")
-            try:
-                self.mavproxy.expect("Log ([0-9]+)  numLogs ([0-9]+) lastLog ([0-9]+) size ([0-9]+)", timeout=120)
-            except pexpect.TIMEOUT as e:
-                if self.sitl_is_running():
-                    self.progress("SITL is running")
-                else:
-                    self.progress("SITL is NOT running")
-                raise NotAchievedException("Received %s" % str(e))
-            if int(self.mavproxy.match.group(2)) != 2:
-                raise NotAchievedException("Expected 2 logs")
-
-            self.mavproxy.send("log download 1 logs/dataflash-log-erase2.BIN\n")
-            self.mavproxy.expect("Finished downloading", timeout=120)
-            self.validate_log_file("logs/dataflash-log-erase2.BIN", 1)
-
-            self.mavproxy.send("log download latest logs/dataflash-log-erase3.BIN\n")
-            self.mavproxy.expect("Finished downloading", timeout=120)
-            self.validate_log_file("logs/dataflash-log-erase3.BIN", 1)
-
-            # clean up
-            self.mavproxy.send("log erase\n")
-            self.mavproxy.expect("Chip erase complete")
-
-            # clean up
-            self.mavproxy.send("log erase\n")
-            self.mavproxy.expect("Chip erase complete")
-
-        except Exception as e:
-            self.progress("Exception (%s) caught" % str(e))
-            ex = e
-
         self.mavproxy.send("module unload log\n")
         self.context_pop()
         self.reboot_sitl()
@@ -5960,15 +5738,15 @@ Also, ignores heartbeats not from our target system'''
         if ex is not None:
             raise ex
 
-    def poll_message(self, message_id, timeout=10):
-        if type(message_id) == str:
-            message_id = eval("mavutil.mavlink.MAVLINK_MSG_ID_%s" % message_id)
+    def test_request_message(self, timeout=60):
+        rate = round(self.get_message_rate("CAMERA_FEEDBACK", 10))
+        if rate != 0:
+            raise PreconditionFailedException("Receving camera feedback")
         # temporarily use a constant in place of
         # mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE until we have a
         # pymavlink release:
-        tstart = self.get_sim_time()
-        self.run_cmd(mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,
-                     message_id,
+        self.run_cmd(512,
+                     180,
                      0,
                      0,
                      0,
@@ -5976,22 +5754,7 @@ Also, ignores heartbeats not from our target system'''
                      0,
                      0,
                      timeout=timeout)
-        while True:
-            if self.get_sim_time_cached() - tstart > timeout:
-                raise NotAchievedException("Did not receive polled message")
-            m = self.mav.recv_match(blocking=True,
-                                    timeout=0.1)
-            if m is None:
-                continue
-            if m.id != message_id:
-                continue
-            return m
-
-    def test_request_message(self, timeout=60):
-        rate = round(self.get_message_rate("CAMERA_FEEDBACK", 10))
-        if rate != 0:
-            raise PreconditionFailedException("Receving camera feedback")
-        m = self.poll_message("CAMERA_FEEDBACK")
+        m = self.mav.recv_match(type='CAMERA_FEEDBACK', blocking=True, timeout=1)
         if m is None:
             raise NotAchievedException("Requested CAMERA_FEEDBACK did not arrive")
 
@@ -6653,18 +6416,6 @@ switch value'''
             self.drain_mav();
             self.delay_sim_time(0.5)
 
-    def wait_gps_fix_type_gte(self, fix_type, timeout=30):
-        tstart = self.get_sim_time()
-        while True:
-            now = self.get_sim_time_cached()
-            if now - tstart > timeout:
-                raise AutoTestTimeoutException("Did not get good GPS lock")
-            m = self.mav.recv_match(type="GPS_RAW_INT", blocking=True, timeout=0.1)
-            if m is None:
-                continue
-            if m.fix_type >= fix_type:
-                break
-
     def nmea_output(self):
         self.set_parameter("SERIAL5_PROTOCOL", 20) # serial5 is NMEA output
         self.set_parameter("GPS_TYPE2", 5) # GPS2 is NMEA
@@ -6672,8 +6423,6 @@ switch value'''
             "--uartE=tcp:6735", # GPS2 is NMEA....
             "--uartF=tcpclient:127.0.0.1:6735", # serial5 spews to localhost:6735
         ])
-        self.drain_mav_unparsed()
-        self.wait_gps_fix_type_gte(3)
         gps1 = self.mav.recv_match(type="GPS_RAW_INT", blocking=True, timeout=10)
         self.progress("gps1=(%s)" % str(gps1))
         if gps1 is None:
@@ -6689,11 +6438,8 @@ switch value'''
                 continue
             if gps2.time_usec != 0:
                 break
-        max_distance = 1
-        distance = self.get_distance_int(gps1, gps2)
-        if distance > max_distance:
-            raise NotAchievedException("NMEA output inaccurate (dist=%f want<%f)" %
-                                       (distance, max_distance))
+        if self.get_distance_int(gps1, gps2) > 1:
+            raise NotAchievedException("NMEA output inaccurate")
 
     def mavproxy_load_module(self, module):
         self.mavproxy.send("module load %s\n" % module)
@@ -6740,19 +6486,20 @@ switch value'''
     def test_button(self):
         self.set_parameter("SIM_PIN_MASK", 0)
         self.set_parameter("BTN_ENABLE", 1)
-        btn = 4
+        btn = 2
         pin = 3
         self.drain_mav()
         self.set_parameter("BTN_PIN%u" % btn, pin)
         m = self.mav.recv_match(type='BUTTON_CHANGE', blocking=True, timeout=1)
-        self.progress("### m: %s" % str(m))
+        self.progress("m: %s" % str(m))
         if m is None:
             raise NotAchievedException("Did not get BUTTON_CHANGE event")
-        mask = 1<<pin
-        if not (m.state & mask):
-            raise NotAchievedException("Bit not set in mask (got=%u want=%u)" % (m.state, mask))
+        mask = 1<<btn
+        if m.state & mask:
+            raise NotAchievedException("Bit incorrectly set in mask (got=%u dontwant=%u)" % (m.state, mask))
+        # SITL instantly reverts the pin to its old value
         m2 = self.mav.recv_match(type='BUTTON_CHANGE', blocking=True, timeout=1)
-        self.progress("### m2: %s" % str(m2))
+        self.progress("m2: %s" % str(m2))
         if m2 is None:
             raise NotAchievedException("Did not get repeat message")
         # wait for messages to stop coming:
@@ -6761,23 +6508,22 @@ switch value'''
         # NOTE: SIM_PIN_MASK is *magic*.  You might set it to zero,
         # but it *will* end up as 1<<btn immediately afterwards.  Thus
         # not attempting to fetch the value back here:
-        new_mask = 0
-        self.send_set_parameter("SIM_PIN_MASK", new_mask, verbose=True)
+        self.send_set_parameter("SIM_PIN_MASK", 0)
         tstart = self.get_sim_time_cached()
         while True:
             now = self.get_sim_time_cached()
             if now - tstart > 10:
                 raise AutoTestTimeoutException("No BUTTON_CHANGE received")
             m3 = self.mav.recv_match(type='BUTTON_CHANGE', blocking=True, timeout=1)
-            self.progress("### m3: %s" % str(m3))
+            self.progress("m3: %s" % str(m3))
             if m3 is None:
                 continue
             if m.last_change_ms == m3.last_change_ms:
                 self.progress("last_change_ms same as first message")
                 continue
-            if m3.state != new_mask:
-                raise NotAchievedException("Unexpected mask (want=%u got=%u)" %
-                                           (new_mask, m3.state))
+            if m3.state != 0:
+                 self.progress("Didn't get expected mask back in message (want=0 got=%u)" % (m3.state))
+                 continue
             self.progress("correct BUTTON_CHANGE event received")
             break
 

@@ -3554,12 +3554,12 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
                 continue
             t = m.get_type()
             if t == "POSITION_TARGET_GLOBAL_INT":
-                self.progress("Target: (%s)" % str(m), send_statustext=False)
+                self.progress("Target: (%s)" % str(m))
             elif t == "GLOBAL_POSITION_INT":
-                self.progress("Position: (%s)" % str(m), send_statustext=False)
+                self.progress("Position: (%s)" % str(m))
                 delta = self.get_distance(mavutil.location(m.lat*1e-7, m.lon*1e-7, 0, 0),
                                           loc)
-                self.progress("delta: %s" % str(delta), send_statustext=False)
+                self.progress("delta: %s" % str(delta))
                 if delta < max_delta:
                     self.progress("Reached destination")
 
@@ -5455,7 +5455,6 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
     def disabled_tests(self):
         return {
             "DriveMaxRCIN": "currently triggers Arithmetic Exception",
-            "Button": "See https://github.com/ArduPilot/ardupilot/issues/15259",
         }
 
     def rc_defaults(self):

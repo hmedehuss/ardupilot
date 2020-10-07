@@ -49,7 +49,7 @@ private:
     uint32_t dmamode;
     ICUConfig icucfg;
     ICUDriver* _icu_drv = nullptr;
-    typedef struct {
+    typedef struct PACKED {
         uint32_t w0;
         uint32_t w1;
     } pulse_t;
