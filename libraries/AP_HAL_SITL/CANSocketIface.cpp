@@ -43,7 +43,11 @@ extern const AP_HAL::HAL& hal;
 
 using namespace HALSITL;
 
+#if HAL_MAX_CAN_PROTOCOL_DRIVERS
 #define Debug(fmt, args...) do { AP::can().log_text(AP_CANManager::LOG_DEBUG, "CANLinuxIface", fmt, ##args); } while (0)
+#else
+#define Debug(fmt, args...)
+#endif
 
 CANIface::CANSocketEventSource CANIface::evt_can_socket[HAL_NUM_CAN_IFACES];
 
@@ -213,7 +217,7 @@ void CANIface::_poll(bool read, bool write)
 bool CANIface::configureFilters(const CanFilterConfig* const filter_configs,
                               const std::uint16_t num_configs)
 {
-    if (filter_configs == nullptr) {
+    if (filter_configs == nullptr || mode_ != FilteredMode) {
         return false;
     }
     _hw_filters_container.clear();
@@ -443,7 +447,8 @@ bool CANIface::init(const uint32_t bitrate, const OperatingMode mode)
 {
     char iface_name[16];
     sprintf(iface_name, "vcan%u", _self_index);
-
+    bitrate_ = bitrate;
+    mode_ = mode;
     if (_initialized) {
         return _initialized;
     }
@@ -464,6 +469,8 @@ bool CANIface::select(bool &read_select, bool &write_select,
 {
     // Detecting whether we need to block at all
     bool need_block = !write_select;    // Write queue is infinite
+    // call poll here to flush some tx
+    _poll(true, true);
 
     if (read_select && _hasReadyRx()) {
         need_block = false;

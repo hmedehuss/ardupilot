@@ -349,9 +349,11 @@ private:
         uint32_t s_acc; 
         uint32_t head_acc; 
         uint16_t p_dop; 
-        uint8_t reserved1[6]; 
-        uint32_t headVeh;
-        uint8_t reserved2[4]; 
+        uint8_t flags3;
+        uint8_t reserved1[5];
+        int32_t headVeh;
+        int16_t magDec;
+        uint16_t magAcc;
     };
     struct PACKED ubx_nav_relposned {
         uint8_t version;
@@ -626,7 +628,8 @@ private:
         UBLOX_6,
         UBLOX_7,
         UBLOX_M8,
-        UBLOX_F9 = 0x80, // comes from MON_VER hwVersion string
+        UBLOX_F9 = 0x80, // comes from MON_VER hwVersion/swVersion strings
+        UBLOX_M9 = 0x81, // comes from MON_VER hwVersion/swVersion strings
         UBLOX_UNKNOWN_HARDWARE_GENERATION = 0xff // not in the ublox spec used for
                                                  // flagging state in the driver
     };
@@ -654,11 +657,6 @@ private:
         STEP_VERSION,
         STEP_RTK_MOVBASE, // setup moving baseline
         STEP_LAST
-    };
-
-    // GPS_DRV_OPTIONS bits
-    enum class DRV_OPTIONS {
-        MB_USE_UART2 = 1U<<0,
     };
 
     // Packet checksum accumulators
@@ -739,10 +737,10 @@ private:
         return (uint8_t)(ubx_msg + (state.instance * UBX_MSG_TYPES));
     }
 
-#if GPS_UBLOX_MOVING_BASELINE
+#if GPS_MOVING_BASELINE
     // see if we should use uart2 for moving baseline config
     bool mb_use_uart2(void) const {
-        return (driver_options() & unsigned(DRV_OPTIONS::MB_USE_UART2))?true:false;
+        return (driver_options() & DriverOptions::UBX_MBUseUart2)?true:false;
     }
 #endif
 
@@ -767,7 +765,7 @@ private:
     // return true if GPS is capable of F9 config
     bool supports_F9_config(void) const;
 
-#if GPS_UBLOX_MOVING_BASELINE
+#if GPS_MOVING_BASELINE
     // config for moving baseline base
     static const config_list config_MB_Base_uart1[];
     static const config_list config_MB_Base_uart2[];
@@ -786,5 +784,5 @@ private:
 
     // RTCM3 parser for when in moving baseline base mode
     RTCM3_Parser *rtcm3_parser;
-#endif // GPS_UBLOX_MOVING_BASELINE
+#endif // GPS_MOVING_BASELINE
 };
