@@ -248,6 +248,43 @@ void NavEKF3_core::writeOptFlowMeas(const uint8_t rawFlowQuality, const Vector2f
 *                      MAGNETOMETER                     *
 ********************************************************/
 
+// try changing compass, return true if a new compass is found
+void NavEKF3_core::tryChangeCompass(void)
+{
+    const Compass &compass = AP::compass();
+    const uint8_t maxCount = compass.get_count();
+
+    // search through the list of magnetometers
+    for (uint8_t i=1; i<maxCount; i++) {
+        uint8_t tempIndex = magSelectIndex + i;
+        // loop back to the start index if we have exceeded the bounds
+        if (tempIndex >= maxCount) {
+            tempIndex -= maxCount;
+        }
+        // if the magnetometer is allowed to be used for yaw and has a different index, we start using it
+        if (compass.healthy(tempIndex) && compass.use_for_yaw(tempIndex) && tempIndex != magSelectIndex) {
+            magSelectIndex = tempIndex;
+            gcs().send_text(MAV_SEVERITY_INFO, "EKF3 IMU%u switching to compass %u",(unsigned)imu_index,magSelectIndex);
+            // reset the timeout flag and timer
+            magTimeout = false;
+            lastHealthyMagTime_ms = imuSampleTime_ms;
+            // zero the learned magnetometer bias states
+            stateStruct.body_magfield.zero();
+            // clear the measurement buffer
+            storedMag.reset();
+            // clear the data waiting flag so that we do not use any data pending from the previous sensor
+            magDataToFuse = false;
+            // request a reset of the magnetic field states
+            magStateResetRequest = true;
+            // declare the field unlearned so that the reset request will be obeyed
+            magFieldLearned = false;
+            // reset body mag variances on next CovariancePrediction
+            needMagBodyVarReset = true;
+            return;
+        }
+    }
+}
+
 // check for new magnetometer data and update store measurements if available
 void NavEKF3_core::readMagData()
 {
@@ -260,7 +297,7 @@ void NavEKF3_core::readMagData()
 
     // If we are a vehicle with a sideslip constraint to aid yaw estimation and we have timed out on our last avialable
     // magnetometer, then declare the magnetometers as failed for this flight
-    uint8_t maxCount = compass.get_count();
+    const uint8_t maxCount = compass.get_count();
     if (allMagSensorsFailed || (magTimeout && assume_zero_sideslip() && magSelectIndex >= maxCount-1 && inFlight)) {
         allMagSensorsFailed = true;
         return;
@@ -277,47 +314,24 @@ void NavEKF3_core::readMagData()
         yawAlignComplete = false;
         InitialiseVariablesMag();
     }
-    
-    // limit compass update rate to prevent high processor loading because magnetometer fusion is an expensive step and we could overflow the FIFO buffer
-    if (use_compass() && ((compass.last_update_usec() - lastMagUpdate_us) > 1000 * frontend->sensorIntervalMin_ms)) {
-        frontend->logging.log_compass = true;
 
-        // If the magnetometer has timed out (been rejected too long) we find another magnetometer to use if available
-        // Don't do this if we are on the ground because there can be magnetic interference and we need to know if there is a problem
-        // before taking off. Don't do this within the first 30 seconds from startup because the yaw error could be due to large yaw gyro bias affsets
-        if (magTimeout && (maxCount > 1) &&
-            !onGround &&
-            imuSampleTime_ms - ekfStartTime_ms > 30000 &&
-            !(frontend->_affinity & EKF_AFFINITY_MAG)) {
-
-            // search through the list of magnetometers
-            for (uint8_t i=1; i<maxCount; i++) {
-                uint8_t tempIndex = magSelectIndex + i;
-                // loop back to the start index if we have exceeded the bounds
-                if (tempIndex >= maxCount) {
-                    tempIndex -= maxCount;
-                }
-                // if the magnetometer is allowed to be used for yaw and has a different index, we start using it
-                if (compass.use_for_yaw(tempIndex) && tempIndex != magSelectIndex) {
-                    magSelectIndex = tempIndex;
-                    gcs().send_text(MAV_SEVERITY_INFO, "EKF3 IMU%u switching to compass %u",(unsigned)imu_index,magSelectIndex);
-                    // reset the timeout flag and timer
-                    magTimeout = false;
-                    lastHealthyMagTime_ms = imuSampleTime_ms;
-                    // zero the learned magnetometer bias states
-                    stateStruct.body_magfield.zero();
-                    // clear the measurement buffer
-                    storedMag.reset();
-                    // clear the data waiting flag so that we do not use any data pending from the previous sensor
-                    magDataToFuse = false;
-                    // request a reset of the magnetic field states
-                    magStateResetRequest = true;
-                    // declare the field unlearned so that the reset request will be obeyed
-                    magFieldLearned = false;
-                    break;
-                }
-            }
+    // If the magnetometer has timed out (been rejected for too long), we find another magnetometer to use if available
+    // Don't do this if we are on the ground because there can be magnetic interference and we need to know if there is a problem
+    // before taking off. Don't do this within the first 30 seconds from startup because the yaw error could be due to large yaw gyro bias affsets
+    // if the timeout is due to a sensor failure, then declare a timeout regardless of onground status
+    if (maxCount > 1) {
+        bool fusionTimeout = magTimeout && !onGround && imuSampleTime_ms - ekfStartTime_ms > 30000 && !(frontend->_affinity & EKF_AFFINITY_MAG);
+        bool sensorTimeout = !compass.healthy(magSelectIndex) && imuSampleTime_ms - lastMagRead_ms > frontend->magFailTimeLimit_ms;
+        if (fusionTimeout || sensorTimeout) {
+            tryChangeCompass();
         }
+    }
+
+    // limit compass update rate to prevent high processor loading because magnetometer fusion is an expensive step and we could overflow the FIFO buffer
+    if (use_compass() &&
+        compass.healthy(magSelectIndex) &&
+        ((compass.last_update_usec(magSelectIndex) - lastMagUpdate_us) > 1000 * frontend->sensorIntervalMin_ms)) {
+        frontend->logging.log_compass = true;
 
         // detect changes to magnetometer offset parameters and reset states
         Vector3f nowMagOffsets = compass.get_offsets(magSelectIndex);
@@ -327,12 +341,20 @@ void NavEKF3_core::readMagData()
             stateStruct.body_magfield.zero();
             // clear the measurement buffer
             storedMag.reset();
+
+            // reset body mag variances on next
+            // CovariancePrediction. This copes with possible errors
+            // in the new offsets
+            needMagBodyVarReset = true;
         }
         lastMagOffsets = nowMagOffsets;
         lastMagOffsetsValid = true;
 
         // store time of last measurement update
         lastMagUpdate_us = compass.last_update_usec(magSelectIndex);
+
+        // Magnetometer data at the current time horizon
+        mag_elements magDataNew;
 
         // estimate of time magnetometer measurement was taken, allowing for delays
         magDataNew.time_ms = imuSampleTime_ms - frontend->magDelay_ms;
@@ -348,6 +370,9 @@ void NavEKF3_core::readMagData()
 
         // save magnetometer measurement to buffer to be fused later
         storedMag.push(magDataNew);
+
+        // remember time we read compass, to detect compass sensor failure
+        lastMagRead_ms = imuSampleTime_ms;
     }
 }
 

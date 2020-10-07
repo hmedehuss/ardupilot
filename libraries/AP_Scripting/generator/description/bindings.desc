@@ -34,7 +34,7 @@ singleton AP_AHRS method groundspeed_vector Vector2f
 singleton AP_AHRS method get_velocity_NED boolean Vector3f'Null
 singleton AP_AHRS method get_relative_position_NED_home boolean Vector3f'Null
 singleton AP_AHRS method home_is_set boolean
-singleton AP_AHRS method prearm_healthy boolean
+singleton AP_AHRS method healthy boolean
 singleton AP_AHRS method airspeed_estimate boolean float'Null
 singleton AP_AHRS method get_vibration Vector3f
 singleton AP_AHRS method earth_to_body Vector3f Vector3f
@@ -207,6 +207,7 @@ singleton SRV_Channels method set_range void SRV_Channel::Aux_servo_function_t'e
 
 ap_object RC_Channel method norm_input float
 ap_object RC_Channel method get_aux_switch_pos uint8_t
+ap_object RC_Channel method norm_input_ignore_trim float
 
 include RC_Channel/RC_Channel.h
 singleton RC_Channels alias rc
