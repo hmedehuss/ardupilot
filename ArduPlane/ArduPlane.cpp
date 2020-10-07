@@ -235,6 +235,8 @@ void Plane::update_logging2(void)
 
     if (should_log(MASK_LOG_IMU))
         logger.Write_Vibration();
+
+	Log_Write_trans();
 }
 
 
@@ -425,8 +427,10 @@ void Plane::update_control_mode(void)
     if (quadplane.in_vtol_mode() ||
         quadplane.in_assisted_flight()) {
         ahrs.set_fly_forward(false);
+        quadplane._trans = 1;
     } else if (flight_stage == AP_Vehicle::FixedWing::FLIGHT_LAND) {
         ahrs.set_fly_forward(landing.is_flying_forward());
+        quadplane._trans = 0;
     } else {
         ahrs.set_fly_forward(true);
     }

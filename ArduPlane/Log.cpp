@@ -188,6 +188,24 @@ void Plane::Log_Write_Nav_Tuning()
     logger.WriteBlock(&pkt, sizeof(pkt));
 }
 
+
+struct PACKED log_Trans {
+    LOG_PACKET_HEADER;
+    uint64_t time_us;
+    uint32_t trans;
+};
+
+// Write a trans indicator
+void Plane::Log_Write_trans()
+{
+    struct log_Trans pkt = {
+        LOG_PACKET_HEADER_INIT(LOG_TRANS_MSG),
+        time_us             : AP_HAL::micros64(),
+		trans       	    : quadplane.transition_state,
+    };
+    logger.WriteBlock(&pkt, sizeof(pkt));
+}
+
 struct PACKED log_Status {
     LOG_PACKET_HEADER;
     uint64_t time_us;
@@ -444,6 +462,14 @@ const struct LogStructure Plane::log_structure[] = {
 // @Field: HdgA: target heading lim
     { LOG_OFG_MSG, sizeof(log_OFG_Guided),     
       "OFG", "QffffBff",    "TimeUS,Arsp,ArspA,Alt,AltA,AltF,Hdg,HdgA", "s-------", "F-------" }, 
+
+// @LoggerMessage: TRAN
+// @Description: Transition
+// @Field: TimeUS: Time since trans
+// @Field: Tran: transition indicator
+	  { LOG_TRANS_MSG, sizeof(log_Trans),
+	    "ITRA", "QI",    "TimeUS,Tran", "s-", "F-"},
+
 
 // @LoggerMessage: CMDI
 // @Description: Generic CommandInt message logger(CMDI) 
