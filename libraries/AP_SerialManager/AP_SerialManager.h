@@ -98,11 +98,6 @@
 #define AP_SERIALMANAGER_SLCAN_BUFSIZE_RX       128
 #define AP_SERIALMANAGER_SLCAN_BUFSIZE_TX       128
 
-// MSP protocol default buffer sizes
-#define AP_SERIALMANAGER_MSP_BUFSIZE_RX     128
-#define AP_SERIALMANAGER_MSP_BUFSIZE_TX     256
-#define AP_SERIALMANAGER_MSP_BAUD           115200
-
 class AP_SerialManager {
 public:
     AP_SerialManager();
@@ -145,11 +140,6 @@ public:
         SerialProtocol_CRSF = 29,
         SerialProtocol_Generator = 30,
         SerialProtocol_Winch = 31,
-        SerialProtocol_MSP = 32,
-        SerialProtocol_DJI_FPV = 33,
-        SerialProtocol_AirSpeed = 34,
-
-        SerialProtocol_NumProtocols                    // must be the last value
     };
 
     // get singleton instance

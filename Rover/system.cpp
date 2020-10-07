@@ -166,6 +166,8 @@ void Rover::startup_ground(void)
     // we don't want writes to the serial port to cause us to pause
     // so set serial ports non-blocking once we are ready to drive
     serial_manager.set_blocking_writes_all(false);
+
+    gcs().send_text(MAV_SEVERITY_INFO, "Ready to drive");
 }
 
 // update the ahrs flyforward setting which can allow
@@ -297,7 +299,6 @@ bool Rover::is_boat() const
 
 #include <AP_Avoidance/AP_Avoidance.h>
 #include <AP_ADSB/AP_ADSB.h>
-#if HAL_ADSB_ENABLED
+
 // dummy method to avoid linking AP_Avoidance
 AP_Avoidance *AP::ap_avoidance() { return nullptr; }
-#endif

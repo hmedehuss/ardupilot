@@ -294,10 +294,10 @@ void AP_Logger::Write_Baro(uint64_t time_us)
     }
     const AP_Baro &baro = AP::baro();
     Write_Baro_instance(time_us, 0, LOG_BARO_MSG);
-    if (baro.num_instances() > 1) {
+    if (baro.num_instances() > 1 && baro.healthy(1)) {
         Write_Baro_instance(time_us, 1, LOG_BAR2_MSG);
     }
-    if (baro.num_instances() > 2) {
+    if (baro.num_instances() > 2 && baro.healthy(2)) {
         Write_Baro_instance(time_us, 2, LOG_BAR3_MSG);
     }
 }
@@ -400,25 +400,20 @@ void AP_Logger::Write_IMUDT(uint64_t time_us, uint8_t imu_mask)
 
 void AP_Logger::Write_Vibration()
 {
+    uint64_t time_us = AP_HAL::micros64();
     const AP_InertialSensor &ins = AP::ins();
-    const uint64_t time_us = AP_HAL::micros64();
-    for (uint8_t i = 0; i < INS_MAX_INSTANCES; i++) {
-        if (!ins.use_accel(i)) {
-            continue;
-        }
-
-        const Vector3f vibration = ins.get_vibration_levels(i);
-        const struct log_Vibe pkt{
-            LOG_PACKET_HEADER_INIT(LOG_VIBE_MSG),
-            time_us     : time_us,
-            imu         : i,
-            vibe_x      : vibration.x,
-            vibe_y      : vibration.y,
-            vibe_z      : vibration.z,
-            clipping  : ins.get_accel_clip_count(i)
-        };
-        WriteBlock(&pkt, sizeof(pkt));
-    }
+    const Vector3f vibration = ins.get_vibration_levels();
+    const struct log_Vibe pkt{
+        LOG_PACKET_HEADER_INIT(LOG_VIBE_MSG),
+        time_us     : time_us,
+        vibe_x      : vibration.x,
+        vibe_y      : vibration.y,
+        vibe_z      : vibration.z,
+        clipping_0  : ins.get_accel_clip_count(0),
+        clipping_1  : ins.get_accel_clip_count(1),
+        clipping_2  : ins.get_accel_clip_count(2)
+    };
+    WriteBlock(&pkt, sizeof(pkt));
 }
 
 void AP_Logger::Write_Command(const mavlink_command_int_t &packet,
@@ -935,7 +930,7 @@ void AP_Logger::Write_VisualOdom(float time_delta, const Vector3f &angle_delta, 
 }
 
 // Write visual position sensor data.  x,y,z are in meters, angles are in degrees
-void AP_Logger::Write_VisualPosition(uint64_t remote_time_us, uint32_t time_ms, float x, float y, float z, float roll, float pitch, float yaw, float pos_err, float ang_err, uint8_t reset_counter, bool ignored)
+void AP_Logger::Write_VisualPosition(uint64_t remote_time_us, uint32_t time_ms, float x, float y, float z, float roll, float pitch, float yaw, float pos_err, float ang_err, uint8_t reset_counter)
 {
     const struct log_VisualPosition pkt_visualpos {
         LOG_PACKET_HEADER_INIT(LOG_VISUALPOS_MSG),
@@ -950,14 +945,13 @@ void AP_Logger::Write_VisualPosition(uint64_t remote_time_us, uint32_t time_ms, 
         yaw             : yaw,
         pos_err         : pos_err,
         ang_err         : ang_err,
-        reset_counter   : reset_counter,
-        ignored         : (uint8_t)ignored
+        reset_counter   : reset_counter
     };
     WriteBlock(&pkt_visualpos, sizeof(log_VisualPosition));
 }
 
 // Write visual velocity sensor data, velocity in NED meters per second
-void AP_Logger::Write_VisualVelocity(uint64_t remote_time_us, uint32_t time_ms, const Vector3f &vel, float vel_err, uint8_t reset_counter, bool ignored)
+void AP_Logger::Write_VisualVelocity(uint64_t remote_time_us, uint32_t time_ms, const Vector3f &vel, float vel_err, uint8_t reset_counter)
 {
     const struct log_VisualVelocity pkt_visualvel {
         LOG_PACKET_HEADER_INIT(LOG_VISUALVEL_MSG),
@@ -968,8 +962,7 @@ void AP_Logger::Write_VisualVelocity(uint64_t remote_time_us, uint32_t time_ms, 
         vel_y           : vel.y,
         vel_z           : vel.z,
         vel_err         : vel_err,
-        reset_counter   : reset_counter,
-        ignored         : (uint8_t)ignored
+        reset_counter   : reset_counter
     };
     WriteBlock(&pkt_visualvel, sizeof(log_VisualVelocity));
 }
@@ -1138,27 +1131,6 @@ void AP_Logger::Write_Winch(bool healthy, bool thread_end, bool moving, bool clu
         tension         : tension,
         voltage         : voltage,
         temp            : temp
-    };
-    WriteBlock(&pkt, sizeof(pkt));
-}
-
-void AP_Logger::Write_PSC(const Vector3f &pos_target, const Vector3f &position, const Vector3f &vel_target, const Vector3f &velocity, const Vector3f &accel_target, const float &accel_x, const float &accel_y)
-{
-    struct log_PSC pkt{
-        LOG_PACKET_HEADER_INIT(LOG_PSC_MSG),
-        time_us         : AP_HAL::micros64(),
-        pos_target_x    : pos_target.x * 0.01f,
-        pos_target_Y    : pos_target.y * 0.01f,
-        position_x      : position.x * 0.01f,
-        position_y      : position.y * 0.01f,
-        vel_target_x    : vel_target.x * 0.01f,
-        vel_target_y    : vel_target.y * 0.01f,
-        velocity_x      : velocity.x * 0.01f,
-        velocity_y      : velocity.y * 0.01f,
-        accel_target_x  : accel_target.x * 0.01f,
-        accel_target_y  : accel_target.y * 0.01f,
-        accel_x         : accel_x * 0.01f,
-        accel_y         : accel_y * 0.01f
     };
     WriteBlock(&pkt, sizeof(pkt));
 }

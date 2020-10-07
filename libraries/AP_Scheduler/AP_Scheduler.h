@@ -22,15 +22,10 @@
 
 #include <AP_Param/AP_Param.h>
 #include <AP_HAL/Util.h>
-#include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_Math.h>
 #include "PerfInfo.h"       // loop perf monitoring
 
-#if HAL_MINIMIZE_FEATURES
-#define AP_SCHEDULER_NAME_INITIALIZER(_clazz,_name) .name = #_name,
-#else
-#define AP_SCHEDULER_NAME_INITIALIZER(_clazz,_name) .name = #_clazz "::" #_name,
-#endif
+#define AP_SCHEDULER_NAME_INITIALIZER(_name) .name = #_name,
 #define LOOP_RATE 0
 
 /*
@@ -38,7 +33,7 @@
  */
 #define SCHED_TASK_CLASS(classname, classptr, func, _rate_hz, _max_time_micros) { \
     .function = FUNCTOR_BIND(classptr, &classname::func, void),\
-    AP_SCHEDULER_NAME_INITIALIZER(classname, func)\
+    AP_SCHEDULER_NAME_INITIALIZER(func)\
     .rate_hz = _rate_hz,\
     .max_time_micros = _max_time_micros\
 }
@@ -77,10 +72,6 @@ public:
         const char *name;
         float rate_hz;
         uint16_t max_time_micros;
-    };
-
-    enum class Options : uint8_t {
-        RECORD_TASK_INFO = 1 << 0
     };
 
     // initialise scheduler
@@ -156,8 +147,6 @@ public:
 
     HAL_Semaphore &get_semaphore(void) { return _rsem; }
 
-    size_t task_info(char *buf, size_t bufsize);
-
     static const struct AP_Param::GroupInfo var_info[];
 
     // loop performance monitoring:
@@ -175,9 +164,6 @@ private:
 
     // loop rate in Hz as set at startup
     AP_Int16 _active_loop_rate_hz;
-
-    // scheduler options
-    AP_Int8 _options;
     
     // calculated loop period in usec
     uint16_t _loop_period_us;

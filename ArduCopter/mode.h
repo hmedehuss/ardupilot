@@ -353,7 +353,7 @@ public:
 
     bool requires_GPS() const override { return true; }
     bool has_manual_throttle() const override { return false; }
-    bool allows_arming(bool from_gcs) const override;
+    bool allows_arming(bool from_gcs) const override { return false; };
     bool is_autopilot() const override { return true; }
     bool in_guided_mode() const override { return mode() == Auto_NavGuided; }
 
@@ -404,11 +404,6 @@ protected:
     void run_autopilot() override;
 
 private:
-
-    enum class Options : int32_t {
-        AllowArming                        = (1 << 0U),
-        AllowTakeOffWithoutRaisingThrottle = (1 << 1U),
-    };
 
     bool start_command(const AP_Mission::Mission_Command& cmd);
     bool verify_command(const AP_Mission::Mission_Command& cmd);
@@ -520,8 +515,6 @@ private:
         float descend_start_altitude;
         float descend_max; // centimetres
     } nav_payload_place;
-
-    bool waiting_for_origin;    // true if waiting for origin before starting mission
 };
 
 #if AUTOTUNE_ENABLED == ENABLED
@@ -1063,7 +1056,7 @@ public:
     // this should probably not be exposed
     bool state_complete() { return _state_complete; }
 
-    virtual bool is_landing() const override;
+    bool is_landing() const override;
 
     void restart_without_terrain();
 
@@ -1115,9 +1108,9 @@ private:
 
     // return target alt type
     enum class ReturnTargetAltType {
-        RELATIVE = 0,
-        RANGEFINDER = 1,
-        TERRAINDATABASE = 2
+        RETURN_TARGET_ALTTYPE_RELATIVE = 0,
+        RETURN_TARGET_ALTTYPE_RANGEFINDER = 1,
+        RETURN_TARGET_ALTTYPE_TERRAINDATABASE = 2
     };
 
     // Loiter timer - Records how long we have been in loiter
@@ -1143,8 +1136,6 @@ public:
 
     void save_position();
     void exit();
-
-    bool is_landing() const override;
 
 protected:
 

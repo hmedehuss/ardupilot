@@ -36,10 +36,9 @@ class BuildBinariesHistory():
         text = int(sizes[0])
         data = int(sizes[1])
         bss = int(sizes[2])
-        self.progress("Binary size of %s:" % filepath)
-        self.progress("text=%u" % text)
-        self.progress("data=%u" % data)
-        self.progress("bss=%u" % bss)
+        print("text=%u" % text)
+        print("data=%u" % data)
+        print("bss=%u" % bss)
         return (text, data, bss)
 
     def assure_db_present(self):

@@ -4,11 +4,6 @@
 #include <AP_Param/AP_Param.h>
 #include <Filter/Filter.h>
 #include <Filter/DerivativeFilter.h>
-#include <AP_MSP/msp.h>
-
-#ifndef HAL_MSP_BARO_ENABLED
-#define HAL_MSP_BARO_ENABLED HAL_MSP_SENSORS_ENABLED
-#endif
 
 // maximum number of sensor instances
 #define BARO_MAX_INSTANCES 3
@@ -193,11 +188,7 @@ public:
     HAL_Semaphore &get_semaphore(void) {
         return _rsem;
     }
-
-#if HAL_MSP_BARO_ENABLED
-    void handle_msp(const MSP::msp_baro_data_message_t &pkt);
-#endif
-
+    
 private:
     // singleton
     static AP_Baro *_singleton;
@@ -214,12 +205,6 @@ private:
 
     uint32_t _log_baro_bit = -1;
 
-    bool init_done;
-
-#if HAL_MSP_BARO_ENABLED
-    uint8_t msp_instance_mask;
-#endif
-
     // bitmask values for GND_PROBE_EXT
     enum {
         PROBE_BMP085=(1<<0),
@@ -233,8 +218,7 @@ private:
         PROBE_KELLER=(1<<8),
         PROBE_MS5837=(1<<9),
         PROBE_BMP388=(1<<10),
-        PROBE_SPL06 =(1<<11),
-        PROBE_MSP   =(1<<12),
+        PROBE_SPL06=(1<<11),
     };
     
     struct sensor {

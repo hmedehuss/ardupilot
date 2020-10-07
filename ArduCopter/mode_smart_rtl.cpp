@@ -59,11 +59,6 @@ void ModeSmartRTL::run()
     }
 }
 
-bool ModeSmartRTL::is_landing() const
-{
-    return smart_rtl_state == SmartRTL_Land;
-}
-
 void ModeSmartRTL::wait_cleanup_run()
 {
     // hover at current target position

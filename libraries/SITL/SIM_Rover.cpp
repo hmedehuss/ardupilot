@@ -24,7 +24,13 @@
 namespace SITL {
 
 SimRover::SimRover(const char *frame_str) :
-    Aircraft(frame_str)
+    Aircraft(frame_str),
+    max_speed(20),
+    max_accel(10),
+    max_wheel_turn(35),
+    turning_circle(1.8),
+    skid_turn_rate(140), // degrees/sec
+    skid_steering(false)
 {
     skid_steering = strstr(frame_str, "skid") != nullptr;
 
