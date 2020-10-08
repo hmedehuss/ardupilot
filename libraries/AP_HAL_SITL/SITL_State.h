@@ -168,6 +168,10 @@ private:
     void _fdm_input_local(void);
     void _output_to_flightgear(void);
     void _output_motor_command_to_UDP(void);
+    int init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out);
+    int sock_error(void);
+    void sock_err_message(const char* msg);
+    void close_UDP_comm(void);
     void _simulator_servos(struct sitl_input &input);
     void _simulator_output(bool synthetic_clock_mode);
     uint16_t _airspeed_sensor(float airspeed);

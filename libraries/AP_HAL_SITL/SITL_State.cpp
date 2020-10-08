@@ -14,10 +14,30 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/select.h>
+#include <string.h>
+#include <fcntl.h>
 
 #include <AP_Param/AP_Param.h>
 #include <SITL/SIM_JSBSim.h>
 #include <AP_HAL/utility/Socket.h>
+
+#ifdef WIN32
+	#include <winsock2.h>
+#else
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <arpa/inet.h>
+	#include <unistd.h> /* close */
+	#include <netdb.h> /* gethostbyname */
+	#define INVALID_SOCKET -1
+	#define SOCKET_ERROR -1
+	#define closesocket(s) close(s)
+	typedef int SOCKET;
+	typedef struct sockaddr_in SOCKADDR_IN;
+	typedef struct sockaddr SOCKADDR;
+	typedef struct in_addr IN_ADDR;
+#endif
 
 extern const AP_HAL::HAL& hal;
 
@@ -562,9 +582,132 @@ void SITL_State::_output_to_flightgear(void)
 /*
   output motor command to UDP port
  */
+const char *destIPAdress = "127.0.0.1";
+unsigned int inputPort = 51002;
+unsigned int outputPort = 52002;
+
+static SOCKET socket_input;
+//static SOCKADDR_IN addr_input;
+
+static SOCKET socket_output;
+static SOCKADDR_IN addr_output;
+
 void SITL_State::_output_motor_command_to_UDP(void)
 {
-	// printf("Hey !!! It's me _output_motor_command_to_UDP !!!!!!!!!!!!!!!");
+	// Crétaion d'une structure 'fdm' dans laquelle copier les données que l'ont veut extraire
+	// Eventuellement, création d'une autre structure que la structure fdm existante, pour
+	// avoir une structure spécifique à notre besoin
+	// Remplir la structure
+	// creer une 'fg_socket' répondant à notre besoin.
+
+	init_UPD_comm(destIPAdress, inputPort, outputPort);
+	char buffer[4096];
+	memset(&buffer, 0, sizeof(buffer));
+	sprintf(buffer, " ");
+
+    if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
+	{
+		sock_err_message("sendto()");
+		exit(sock_error());
+	}
+	closesocket(socket_input);
+#ifdef WIN32
+	WSACleanup();
+#endif
+
+	//printf("Hey !!! It's me _output_motor_command_to_UDP !\n");
+
+}
+
+int SITL_State::init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out)
+{
+#ifdef WIN32
+	WSADATA wsa;
+	int err = WSAStartup(MAKEWORD(2, 2), &wsa);
+	if(err < 0)
+	{
+		puts("WSAStartup failed !");
+		exit(EXIT_FAILURE);
+	}
+#endif
+
+/*
+	// Input initialisation
+	socket_input = socket(AF_INET, SOCK_DGRAM, 0);
+	if(socket_input == INVALID_SOCKET)
+	{
+		sock_err_message("socket()");
+		exit(sock_error());
+	}
+
+	 Put socket in nonblocking mode.
+#ifdef WIN32
+	unsigned long argp = 1;
+	ioctlsocket(socket_input, FIONBIO, &argp);
+#else
+	fcntl(socket_input, F_SETFL, O_NDELAY);
+#endif
+
+	addr_input.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr_input.sin_family = AF_INET;
+        addr_input.sin_port = htons(port_in);
+
+	if(bind (socket_input, (SOCKADDR *) &addr_input, sizeof addr_input) == SOCKET_ERROR)
+	{
+		sock_err_message("bind()");
+		exit(sock_error());
+	}
+	// Input initialized
+*/
+
+	// Output initialisation
+	socket_output = socket(AF_INET, SOCK_DGRAM, 0);
+	if(socket_output == INVALID_SOCKET)
+	{
+		sock_err_message("socket()");
+		exit(sock_error());
+	}
+
+	/* Put socket in nonblocking mode. */
+#ifdef WIN32
+	argp = 1;
+	ioctlsocket(socket_output, FIONBIO, &argp);
+#else
+	fcntl(socket_output, F_SETFL, O_NDELAY);
+#endif
+
+        struct hostent *host_output = (struct hostent *) gethostbyname((char *)IP_adress);
+	if (host_output == NULL)
+	{
+                fprintf (stderr, "Unknown host %s.\n", IP_adress);
+		exit(EXIT_FAILURE);
+	}
+
+	addr_output.sin_family = AF_INET;
+        addr_output.sin_port = htons(port_out);
+        addr_output.sin_addr = *((struct in_addr *)host_output->h_addr);
+	// Output initialized
+
+	return 0;
+}
+
+int SITL_State::sock_error(void)
+{
+#ifdef WIN32
+	return WSAGetLastError();
+#else
+	return errno;
+  #endif
+}
+
+void SITL_State::sock_err_message(const char* msg)
+{
+#ifdef WIN32
+	fprintf (stderr, "Error : %s.\n", msg);
+	exit(EXIT_FAILURE);
+#else
+	perror(msg);
+#endif
 }
 
 /*
