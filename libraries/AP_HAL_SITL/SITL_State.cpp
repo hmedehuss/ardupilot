@@ -603,7 +603,17 @@ void SITL_State::_output_motor_command_to_UDP(void)
 	init_UPD_comm(destIPAdress, inputPort, outputPort);
 	char buffer[4096];
 	memset(&buffer, 0, sizeof(buffer));
-	sprintf(buffer, " ");
+
+	/*for (int i =0; i<static_cast<int>(sizeof(pwm_input)/sizeof(pwm_input[0])); i++)
+	{
+		sprintf(buffer, "%f ", 1000 - pwm_input[i]/1000);
+	}*/
+	sprintf(buffer, "%f %f %f %f ",
+			(static_cast<float>(pwm_output[4])-1000.0)/1000.0,
+			(static_cast<float>(pwm_output[5])-1000.0)/1000.0,
+			(static_cast<float>(pwm_output[6])-1000.0)/1000.0,
+			(static_cast<float>(pwm_output[7])-1000.0)/1000.0);
+
 
     if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
 	{
