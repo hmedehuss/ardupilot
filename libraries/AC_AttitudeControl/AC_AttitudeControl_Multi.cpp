@@ -438,7 +438,6 @@ void AC_AttitudeControl_Multi::rate_controller_run()
 	Sat2 = saturation(_Kdy*dey, 0.5);
 	Sat3 = saturation(_Kpphi*eroll, 0.5);
 	Sat4 = saturation(_Kpdphi*_dedroll, 0.3);
-	_motors.set_roll(_sat_roll);
 
 
 
