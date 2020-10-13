@@ -98,6 +98,10 @@ public:
     void set_roll_target(float p) {_phi_d = radians(p * 0.01f);};
     float				  _phi_d;
 
+    void set_copter_transition_percentage(float gamma_roll, float gamma_pitch){
+    	_gamma_transition_roll = gamma_roll;
+    	_gamma_transition_pitch = gamma_pitch;
+    }
 
 protected:
 
@@ -127,4 +131,8 @@ protected:
     AP_Float              _thr_mix_man;     // throttle vs attitude control prioritisation used when using manual throttle (higher values mean we prioritise attitude control over throttle)
     AP_Float              _thr_mix_min;     // throttle vs attitude control prioritisation used when landing (higher values mean we prioritise attitude control over throttle)
     AP_Float              _thr_mix_max;     // throttle vs attitude control prioritisation used during active flight (higher values mean we prioritise attitude control over throttle)
+
+    // Percentage of altitude manage by quad part
+	float _gamma_transition_roll = 0.0;
+	float _gamma_transition_pitch = 0.0;
 };

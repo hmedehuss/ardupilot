@@ -968,6 +968,20 @@ private:
     void publish_osd_info();
 #endif
 
+    // Transition parameter used by Quadplane // Percentage of roll managed by plane part
+	float _nu_transition_roll = 0.0;
+	// Percentage of roll managed by quad part
+	float _gamma_transition_roll = 0.0;
+
+	// Transition parameter used by Quadplane // Percentage of roll managed by plane part
+	float _nu_transition_pitch = 0.0;
+	// Percentage of roll managed by quad part
+	float _gamma_transition_pitch = 0.0;
+
+	void set_transition_parameters(void);
+	void set_transition_roll_parameters(void);
+	void set_transition_pitch_parameters(void);
+
     // navigation.cpp
     void set_nav_controller(void);
     void loiter_angle_reset(void);
