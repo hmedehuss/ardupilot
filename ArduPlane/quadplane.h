@@ -207,6 +207,9 @@ private:
     // update transition handling
     void update_transition(void);
 
+    // update transition handling VIABLE version
+	void update_transitionV2(void);
+
     // check for an EKF yaw reset
     void check_yaw_reset(void);
     

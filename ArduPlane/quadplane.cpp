@@ -1785,6 +1785,165 @@ void QuadPlane::update_transition(void)
     motors_output();
 }
 
+void QuadPlane::update_transitionV2(void){
+
+	if (plane.control_mode == &plane.mode_manual ||
+		plane.control_mode == &plane.mode_acro ||
+		plane.control_mode == &plane.mode_training) {
+		// in manual modes quad motors are always off
+		if (!tilt.motors_active && !is_tailsitter()) {
+			motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::SHUT_DOWN);
+			motors->output();
+		}
+		transition_state = TRANSITION_DONE;
+		transition_start_ms = 0;
+		transition_low_airspeed_ms = 0;
+		assisted_flight = false;
+		return;
+	}
+
+	const uint32_t now = millis();
+
+	if (!hal.util->get_soft_armed()) {
+		// reset the failure timer if we haven't started transitioning
+		transition_start_ms = now;
+	} else if ((transition_state != TRANSITION_DONE) &&
+		(transition_start_ms != 0) &&
+		(transition_failure > 0) &&
+		((now - transition_start_ms) > ((uint32_t)transition_failure * 1000))) {
+		gcs().send_text(MAV_SEVERITY_CRITICAL, "Transition failed, exceeded time limit");
+		plane.set_mode(plane.mode_qland, ModeReason::VTOL_FAILED_TRANSITION);
+	}
+
+	float aspeed;
+	bool have_airspeed = ahrs.airspeed_estimate(aspeed);
+
+	// tailsitters use angle wait, not airspeed wait
+	if (is_tailsitter() && transition_state == TRANSITION_AIRSPEED_WAIT) {
+		transition_state = TRANSITION_ANGLE_WAIT_FW;
+	}
+
+	/*
+	  see if we should provide some assistance
+	 */
+	if (assistance_safe() && (q_assist_state == Q_ASSIST_STATE_ENUM::Q_ASSIST_FORCE ||
+		(q_assist_state == Q_ASSIST_STATE_ENUM::Q_ASSIST_ENABLED && assistance_needed(aspeed, have_airspeed)))) {
+		// the quad should provide some assistance to the plane
+		assisted_flight = true;
+		if (!is_tailsitter()) {
+			// update tansition state for vehicles using airspeed wait
+			if (transition_state != TRANSITION_AIRSPEED_WAIT) {
+				gcs().send_text(MAV_SEVERITY_INFO, "Transition started airspeed %.1f", (double)aspeed);
+			}
+			transition_state = TRANSITION_AIRSPEED_WAIT;
+			if (transition_start_ms == 0) {
+				transition_start_ms = now;
+			}
+		}
+	} else {
+		assisted_flight = false;
+	}
+
+	if (is_tailsitter()) {
+		if (transition_state == TRANSITION_ANGLE_WAIT_FW &&
+			tailsitter_transition_fw_complete()) {
+			gcs().send_text(MAV_SEVERITY_INFO, "Transition FW done");
+			transition_state = TRANSITION_DONE;
+			transition_start_ms = 0;
+			transition_low_airspeed_ms = 0;
+		}
+	}
+
+	// if rotors are fully forward then we are not transitioning,
+	// unless we are waiting for airspeed to increase (in which case
+	// the tilt will decrease rapidly)
+	if (tiltrotor_fully_fwd() && transition_state != TRANSITION_AIRSPEED_WAIT) {
+		transition_state = TRANSITION_DONE;
+		transition_start_ms = 0;
+		transition_low_airspeed_ms = 0;
+	}
+
+	if (transition_state < TRANSITION_TIMER) {
+		// set a single loop pitch limit in TECS
+		if (plane.ahrs.groundspeed() < 3) {
+			// until we have some ground speed limit to zero pitch
+			plane.TECS_controller.set_pitch_max_limit(0);
+		} else {
+			plane.TECS_controller.set_pitch_max_limit(transition_pitch_max);
+		}
+	} else if (transition_state < TRANSITION_DONE) {
+		plane.TECS_controller.set_pitch_max_limit((transition_pitch_max+1)*2);
+	}
+	if (transition_state < TRANSITION_DONE) {
+		// during transition we ask TECS to use a synthetic
+		// airspeed. Otherwise the pitch limits will throw off the
+		// throttle calculation which is driven by pitch
+		plane.TECS_controller.use_synthetic_airspeed();
+	}
+
+	switch (transition_state) {
+	case TRANSITION_AIRSPEED_WAIT: {
+
+		motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+		// we hold in hover until the required airspeed is reached
+		if (transition_start_ms == 0) {
+			gcs().send_text(MAV_SEVERITY_INFO, "Transition airspeed wait");
+			transition_start_ms = now;
+		}
+
+		transition_low_airspeed_ms = now;
+		if (have_airspeed && aspeed > plane.aparm.airspeed_min && !assisted_flight) {
+			transition_state = TRANSITION_DONE;
+			gcs().send_text(MAV_SEVERITY_INFO, "Transition done airspeed reached %.1f", (double)aspeed);
+		}
+
+		assisted_flight = true;
+
+		float climb_rate_cms = assist_climb_rate_cms();
+		hold_hover(climb_rate_cms);
+
+		// set desired yaw to current yaw in both desired angle and
+		// rate request. This reduces wing twist in transition due to
+		// multicopter yaw demands
+		attitude_control->set_yaw_target_to_current_heading();
+		attitude_control->rate_bf_yaw_target(ahrs.get_gyro().z);
+
+		last_throttle = motors->get_throttle();
+
+		// reset integrators while we are below target airspeed as we
+		// may build up too much while still primarily under
+		// multicopter control
+		plane.pitchController.reset_I();
+		plane.rollController.reset_I();
+
+		// give full authority to attitude control
+		attitude_control->set_throttle_mix_max(1.0f);
+
+		break;
+	}
+
+	case TRANSITION_TIMER:
+		return;
+
+	case TRANSITION_ANGLE_WAIT_VTOL:
+		// nothing to do, this is handled in the fw attitude controller
+		return;
+
+	case TRANSITION_ANGLE_WAIT_FW:
+		return;
+
+	case TRANSITION_DONE:
+
+		if (!tilt.motors_active && !is_tailsitter()) {
+			motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::SHUT_DOWN);
+			motors->output();
+		}
+		return;
+	}
+
+	motors_output();
+}
+
 /*
   update motor output for quadplane
  */
@@ -1831,7 +1990,7 @@ void QuadPlane::update(void)
     }
     
     if (!in_vtol_mode()) {
-        update_transition();
+        update_transitionV2();
     } else {
         const uint32_t now = AP_HAL::millis();
 

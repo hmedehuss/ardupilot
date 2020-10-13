@@ -37,6 +37,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(check_short_failsafe,   50,    100),
     SCHED_TASK(update_speed_height,    50,    200),
     SCHED_TASK(update_control_mode,   400,    100),
+	SCHED_TASK(set_transition_parameters,   200,    100),
     SCHED_TASK(stabilize,             400,    100),
     SCHED_TASK(set_servos,            400,    100),
     SCHED_TASK(update_throttle_hover, 100,     90),
@@ -652,5 +653,91 @@ bool Plane::get_target_location(Location& target_loc)
     }
     return false;
 }
+
+void Plane::set_transition_parameters(){
+	set_transition_roll_parameters();
+	set_transition_pitch_parameters();
+
+	quadplane.attitude_control->set_copter_transition_percentage(plane._gamma_transition_roll, plane._gamma_transition_pitch);
+}
+
+void Plane::set_transition_roll_parameters(){
+
+	//float aspeed;
+	//bool have_airspeed = ahrs.airspeed_estimate(aspeed);
+
+	if(!is_flying() && arming.arming_required() != AP_Arming::Required::NO && arming.is_armed()){
+		plane._nu_transition_roll = 0.0;
+		plane._gamma_transition_roll = 0.0;
+	}
+	else if(quadplane.in_vtol_auto()){
+		plane._nu_transition_roll = 0.0;
+		plane._gamma_transition_roll = 1.0 - plane._nu_transition_roll;
+	}
+	else if (quadplane.in_transition()){
+
+		//if(have_airspeed){
+			// Première approche évolution polynomiale du second ordre
+			plane._nu_transition_roll =-1 * airspeed.get_airspeed() * (airspeed.get_airspeed() - 2 * (float)plane.aparm.airspeed_min) / ((float)plane.aparm.airspeed_min * (float)plane.aparm.airspeed_min);
+			plane._gamma_transition_roll = 1 - plane._nu_transition_roll;
+			//plane._nu_transition_roll = 0.0;
+			//plane._gamma_transition_roll = 1.0;
+		//}
+
+	}
+	else{
+		plane._nu_transition_roll = 1.0;
+		plane._gamma_transition_roll = 1.0 - plane._nu_transition_roll;
+	}
+
+	plane._nu_transition_roll = constrain_float(plane._nu_transition_roll, 0.0, 1.0);
+	plane._gamma_transition_roll = constrain_float(plane._gamma_transition_roll, 0.0, 1.0);
+
+	AP::logger().Write("TRAR", "TimeUS, nu_tran, gamma_tran, airspeed, Formule", "Qffff",
+	                       AP_HAL::micros64(),
+	                       plane._nu_transition_roll,
+						   plane._gamma_transition_roll,
+						   airspeed.get_airspeed(),
+						   -1 * airspeed.get_airspeed() * (airspeed.get_airspeed() - 2 * (float)plane.aparm.airspeed_min) / ((float)plane.aparm.airspeed_min * (float)plane.aparm.airspeed_min));
+}
+
+void Plane::set_transition_pitch_parameters(){
+
+	plane._nu_transition_pitch = 1.0;
+	plane._gamma_transition_pitch = 0.0;
+
+	//float aspeed;
+	//bool have_airspeed = ahrs.airspeed_estimate(aspeed);
+
+	if(!is_flying() && arming.arming_required() != AP_Arming::Required::NO && arming.is_armed()){
+		plane._nu_transition_pitch = 0.0;
+		plane._gamma_transition_pitch = 0.0;
+	}
+	else if(quadplane.in_vtol_auto()){
+		plane._nu_transition_pitch = 0.0;
+		plane._gamma_transition_pitch = 1.0 - plane._nu_transition_pitch;
+	}
+	else if (quadplane.in_transition()){
+
+		plane._nu_transition_pitch =-1 * airspeed.get_airspeed() * (airspeed.get_airspeed() - 2 * (float)plane.aparm.airspeed_min) / ((float)plane.aparm.airspeed_min * (float)plane.aparm.airspeed_min);
+		plane._gamma_transition_pitch = 1 - plane._nu_transition_pitch;
+
+		//plane._nu_transition_pitch = 1.0;
+		//plane._gamma_transition_pitch = 1.0 - plane._nu_transition_pitch;
+	}
+	else{
+		plane._nu_transition_pitch = 1.0;
+		plane._gamma_transition_pitch = 1.0 - plane._nu_transition_pitch;
+	}
+
+	plane._nu_transition_pitch = constrain_float(plane._nu_transition_pitch, 0.0, 1.0);
+	plane._gamma_transition_pitch = constrain_float(plane._gamma_transition_pitch, 0.0, 1.0);
+
+	AP::logger().Write("TRAP", "TimeUS, nu_tran, gamma_tran", "Qff",
+	                       AP_HAL::micros64(),
+	                       plane._nu_transition_pitch,
+						   plane._gamma_transition_pitch);
+}
+
 
 AP_HAL_MAIN_CALLBACKS(&plane);
