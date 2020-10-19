@@ -608,12 +608,15 @@ void SITL_State::_output_motor_command_to_UDP(void)
 	{
 		sprintf(buffer, "%f ", 1000 - pwm_input[i]/1000);
 	}*/
-	sprintf(buffer, "%f %f %f %f ",
-			(static_cast<float>(pwm_output[4])-1000.0)/1000.0,
-			(static_cast<float>(pwm_output[5])-1000.0)/1000.0,
-			(static_cast<float>(pwm_output[6])-1000.0)/1000.0,
-			(static_cast<float>(pwm_output[7])-1000.0)/1000.0);
-
+    sprintf(buffer, "%f %f %f %f %f %f %f %f ",
+           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE and TWO
+           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE and TWO
+           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_ONE and TWO
+           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_ONE and TWO
+           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_ONE and TWO
+           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_ONE and TWO
+           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE and TWO
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_ONE and TWO
 
     if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
 	{
