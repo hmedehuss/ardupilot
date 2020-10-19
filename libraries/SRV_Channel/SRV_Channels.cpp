@@ -51,6 +51,9 @@ uint16_t SRV_Channels::disabled_mask;
 uint16_t SRV_Channels::digital_mask;
 uint16_t SRV_Channels::reversible_mask;
 
+uint64_t SRV_Channels::start_automode;
+bool SRV_Channels::in_auto;
+
 bool SRV_Channels::disabled_passthrough;
 bool SRV_Channels::initialised;
 bool SRV_Channels::emergency_stop;
@@ -220,9 +223,23 @@ void SRV_Channels::calc_pwm(void)
             channels[i].set_override(true);
             override_counter[i]--;
         }
-        channels[i].calc_pwm(functions[channels[i].function].output_scaled);
-        printf("%u \n", functions[channels[i].function].output_scaled);
-    }
+
+		channels[i].calc_pwm(functions[channels[i].function].output_scaled);
+
+		//output_pwm of channels[i] is set to 1000 if channel[i] failure is enable and the timer is out of range
+		if (in_auto){
+			channels[i].sim_failure(start_automode);
+		}
+		else{
+			start_automode = AP_HAL::micros64();
+		}
+	}
+    /*AP::logger().Write("FTTG", "TimeUS,inAuto,start_automode,t_fail,fail_en", "QIffB",
+    		                                           AP_HAL::micros64(),
+													   in_auto,
+													   (double)start_automode/(1.0e6),
+													   channels[13].failure_time,
+													   channels[13].is_servofailure_enable);*/
 }
 
 // set output value for a specific function channel as a pwm value
@@ -328,4 +345,9 @@ void SRV_Channels::push()
         }
     }
 #endif // HAL_NUM_CAN_IFACES
+}
+
+void SRV_Channels::set_AutoMode(bool in_modeauto)
+{
+    in_auto = in_modeauto;
 }
