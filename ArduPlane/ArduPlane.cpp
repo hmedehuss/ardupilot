@@ -419,9 +419,6 @@ void Plane::update_control_mode(void)
     if (effective_mode != &mode_auto) {
         // hold_course is only used in takeoff and landing
         steer_state.hold_course_cd = -1;
-        plane.g2.servo_channels.set_AutoMode(false);
-    }else{
-    	plane.g2.servo_channels.set_AutoMode(true);
     }
 
     // ensure we are fly-forward when we are flying as a pure fixed
