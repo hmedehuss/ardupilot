@@ -69,6 +69,22 @@ const AP_Param::GroupInfo SRV_Channel::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("FUNCTION",  5, SRV_Channel, function, 0),
 
+	// @Param: TFAIL
+	// @DisplayName: Failure time
+	// @Description: time of servo failure after auto mode
+	// @Units: s
+	// @Range: 0 1000
+	// @Increment: 1
+	// @User: Advanced
+	AP_GROUPINFO("TFAIL",  6, SRV_Channel, failure_time, 0),
+
+	// @Param: ENFAIL
+	// @DisplayName: Failure enable
+	// @Description: Parameters allowing failure on the servo
+	// @values: 0:disabled,1:enabled
+	// @User: Standard
+	AP_GROUPINFO("ENFAIL",  7, SRV_Channel, is_servofailure_enable, 0),
+
     AP_GROUPEND
 };
 
@@ -187,6 +203,11 @@ float SRV_Channel::get_output_norm(void)
     return ret;
 }
 
+uint16_t SRV_Channel::get_output_pwm(void)
+{
+    return output_pwm;
+}
+
 uint16_t SRV_Channel::get_limit_pwm(Limit limit) const
 {
     switch (limit) {
@@ -217,4 +238,16 @@ bool SRV_Channel::should_e_stop(SRV_Channel::Aux_servo_function_t function)
             function == SRV_Channel::k_throttleLeft || function == SRV_Channel::k_throttleRight ||
             (function >= SRV_Channel::k_boost_throttle && function <= SRV_Channel::k_motor12) ||
             function == k_engine_run_enable);
+}
+
+void SRV_Channel::sim_failure(uint64_t t0){
+
+	if (do_failure(t0)){
+		output_pwm = 1000;
+	}
+}
+
+bool SRV_Channel::do_failure(uint64_t t0){
+	bool time_out = (float) ((AP_HAL::micros64()-t0) / (1.0e6))> (float)failure_time;
+	return (is_servofailure_enable && time_out);
 }
