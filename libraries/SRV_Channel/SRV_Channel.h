@@ -239,6 +239,11 @@ public:
     // used by DO_SET_SERVO commands
     void ignore_small_rcin_changes() { ign_small_rcin_changes = true; }
 
+    uint16_t get_output_pwm(void);
+
+    void sim_failure(uint64_t t0);
+    bool do_failure(uint64_t t0);
+
 private:
     AP_Int16 servo_min;
     AP_Int16 servo_max;
@@ -246,6 +251,8 @@ private:
     // reversal, following convention that 1 means reversed, 0 means normal
     AP_Int8 reversed;
     AP_Int16 function;
+    AP_Int16 failure_time;
+    AP_Int8 is_servofailure_enable;
 
     // a pending output value as PWM
     uint16_t output_pwm;
@@ -450,6 +457,8 @@ public:
     // set output refresh frequency on a servo function
     static void set_rc_frequency(SRV_Channel::Aux_servo_function_t function, uint16_t frequency);
 
+    void set_AutoMode(bool in_modeauto);
+
     // control pass-thru of channels
     void disable_passthrough(bool disable) {
         disabled_passthrough = disable;
@@ -507,6 +516,9 @@ public:
     }
 
 private:
+
+    static uint64_t start_automode;
+    static bool in_auto;
 
     static bool disabled_passthrough;
 
