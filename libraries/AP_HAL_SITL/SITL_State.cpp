@@ -779,7 +779,9 @@ void SITL_State::_simulator_servos(struct sitl_input &input)
     }
 
     if (_vehicle == ArduPlane) {
-        float forward_throttle = constrain_float((input.servos[2] - 1000) / 1000.0f, 0.0f, 1.0f);
+    	float foward_throttle_1 = constrain_float((input.servos[2] - 1000) / 1000.0f, 0.0f, 1.0f);
+    	float foward_throttle_2 = constrain_float((input.servos[12] - 1000) / 1000.0f, 0.0f, 1.0f);
+    	float forward_throttle = (foward_throttle_1 + foward_throttle_2) / 2;
         // do a little quadplane dance
         float hover_throttle = 0.0f;
         uint8_t running_motors = 0;
