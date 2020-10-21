@@ -300,12 +300,23 @@ void Plane::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     }
     //printf("Aileron: %.1f elevator: %.1f rudder: %.1f\n", aileron, elevator, rudder);
 
+    float lthrottle;
+    float rthrottle;
+
     if (reverse_thrust) {
-        throttle = filtered_servo_angle(input, 2);
+    	lthrottle = filtered_servo_angle(input, 2);
+    	rthrottle = filtered_servo_angle(input, 12);
     } else {
-        throttle = filtered_servo_range(input, 2);
+    	lthrottle = filtered_servo_range(input, 2);
+		rthrottle = filtered_servo_range(input, 12);
     }
-    
+    throttle = (lthrottle + rthrottle) / 2;
+    if(AP_HAL::millis() - last_print > 5000){
+			last_print = AP_HAL::millis();
+			printf("Right throttle:%f and Left throttle:%f \n",rthrottle, lthrottle);
+		}
+    throttle = constrain_float(throttle, 0.0, 1.0);
+
     float thrust     = throttle;
 
     if (ice_engine) {
@@ -327,6 +338,22 @@ void Plane::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     
     Vector3f force = getForce(aileron, elevator, rudder);
     rot_accel = getTorque(aileron, elevator, rudder, thrust, force);
+
+    // Add a terms to simulate rotation due to dissymetrical thrust
+    float lthrust = lthrottle * thrust_scale / 2;
+    float rthrust = rthrottle * thrust_scale / 2;
+
+    float yaw_arm_scaler = 5;
+    float pitch_arm_scaler = 0.5;
+    float roll_scale = radians(400);
+
+    double lt = roll_scale * rthrottle - roll_scale * lthrottle;// induced roll due to differential torque on both motor
+    double pt = lthrust * pitch_arm_scaler + rthrust * pitch_arm_scaler;// induced pitch due to offset betwen thrust axe and body axe
+    double nt = lthrust * yaw_arm_scaler - rthrust * yaw_arm_scaler;// induced yaw due to differential thrust
+
+    Vector3f inducedThrust_rot(lt, pt, nt);
+
+    rot_accel += inducedThrust_rot;
 
     if (have_launcher) {
         /*

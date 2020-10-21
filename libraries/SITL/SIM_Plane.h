@@ -103,6 +103,7 @@ protected:
     float launch_accel;
     float launch_time;
     uint64_t launch_start_ms;
+    uint64_t last_print = 0;
 
     const uint8_t throttle_servo = 2;
     const int8_t choke_servo = 14;

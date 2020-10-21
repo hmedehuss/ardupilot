@@ -29,7 +29,7 @@ void Motor::calculate_forces(const struct sitl_input &input,
                              Vector3f &thrust)
 {
     // fudge factors
-    const float arm_scale = radians(5000);
+    const float arm_scale = radians(5000);//Définition du bras de levier
     const float yaw_scale = radians(400);
 
     // get motor speed from 0 to 1
