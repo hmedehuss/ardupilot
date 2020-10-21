@@ -221,7 +221,7 @@ void SRV_Channels::calc_pwm(void)
             override_counter[i]--;
         }
         channels[i].calc_pwm(functions[channels[i].function].output_scaled);
-        printf("%u \n", functions[channels[i].function].output_scaled);
+        //printf("%u \n", functions[channels[i].function].output_scaled);
     }
 }
 
