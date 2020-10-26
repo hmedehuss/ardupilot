@@ -161,7 +161,7 @@ private:
     void draw_vspeed(uint8_t x, uint8_t y);
 
     //helper functions
-    void draw_speed_vector(uint8_t x, uint8_t y, Vector2f v, int32_t yaw);
+    void draw_speed(uint8_t x, uint8_t y, float angle_rad, float magnitude);
     void draw_distance(uint8_t x, uint8_t y, float distance);
 
 #ifdef HAVE_AP_BLHELI_SUPPORT
