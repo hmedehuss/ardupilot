@@ -849,8 +849,7 @@ void QuadPlane::multicopter_attitude_rate_update(float yaw_rate_cds)
     check_attitude_relax();
 
     // normal control modes for VTOL and FW flight
-    // tailsitter in transition to VTOL flight is not really in a VTOL mode yet
-    if (in_vtol_mode() && !in_tailsitter_vtol_transition()) {
+    if (in_vtol_mode()) {
 
         // tailsitter-only body-frame roll control options
         // Angle mode attitude control for pitch and body-frame roll, rate control for euler yaw.

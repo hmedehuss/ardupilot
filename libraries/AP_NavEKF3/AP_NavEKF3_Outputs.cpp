@@ -169,10 +169,10 @@ void NavEKF3_core::getAccelBias(Vector3f &accelBias) const
     accelBias = stateStruct.accel_bias / dtEkfAvg;
 }
 
-// return estimated 1-sigma tilt error in radians
+// return tilt error convergence metric
 void NavEKF3_core::getTiltError(float &ang) const
 {
-    ang = sqrtf(MAX(tiltErrorVariance,0.0f));
+    ang = stateStruct.quat.length();
 }
 
 // return the transformation matrix from XYZ (body) to NED axes

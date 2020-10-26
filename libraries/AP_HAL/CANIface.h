@@ -94,11 +94,8 @@ public:
     enum OperatingMode {
         PassThroughMode,
         NormalMode,
-        SilentMode,
-        FilteredMode
+        SilentMode
     };
-
-    OperatingMode get_operating_mode() { return mode_; }
 
     typedef uint16_t CanIOFlags;
     static const CanIOFlags Loopback = 1;
@@ -209,7 +206,4 @@ public:
 
     // return true if init was called and successful
     virtual bool is_initialized() const = 0;
-protected:
-    uint32_t bitrate_;
-    OperatingMode mode_;
 };

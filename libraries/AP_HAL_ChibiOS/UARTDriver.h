@@ -141,7 +141,7 @@ private:
     uint32_t lock_read_key;
 
     uint32_t _baudrate;
-    volatile uint16_t tx_len;
+    uint16_t tx_len;
 #if HAL_USE_SERIAL == TRUE
     SerialConfig sercfg;
 #endif
@@ -157,7 +157,7 @@ private:
     // we use in-task ring buffers to reduce the system call cost
     // of ::read() and ::write() in the main loop
 #ifndef HAL_UART_NODMA
-    volatile bool tx_bounce_buf_ready;
+    bool tx_bounce_buf_ready;
     volatile uint8_t rx_bounce_idx;
     uint8_t *rx_bounce_buf[2];
     uint8_t *tx_bounce_buf;

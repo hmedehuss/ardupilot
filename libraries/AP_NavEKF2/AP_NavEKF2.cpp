@@ -1679,7 +1679,7 @@ bool NavEKF2::isExtNavUsedForYaw() const
 void NavEKF2::requestYawReset(void)
 {
     for (uint8_t i = 0; i < num_cores; i++) {
-        core[i].EKFGSF_requestYawReset();
+        core[primary].EKFGSF_requestYawReset();
     }
 }
 
