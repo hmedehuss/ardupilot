@@ -886,30 +886,26 @@ void Plane::do_loiter_at_location()
     next_WP_loc = current_loc;
 }
 
-bool Plane::do_change_speed(const AP_Mission::Mission_Command& cmd)
+void Plane::do_change_speed(const AP_Mission::Mission_Command& cmd)
 {
     switch (cmd.content.speed.speed_type)
     {
     case 0:             // Airspeed
-        if ((cmd.content.speed.target_ms >= aparm.airspeed_min.get()) && (cmd.content.speed.target_ms <= aparm.airspeed_max.get()))  {
+        if (cmd.content.speed.target_ms > 0) {
             aparm.airspeed_cruise_cm.set(cmd.content.speed.target_ms * 100);
             gcs().send_text(MAV_SEVERITY_INFO, "Set airspeed %u m/s", (unsigned)cmd.content.speed.target_ms);
-            return true;
         }
         break;
     case 1:             // Ground speed
         gcs().send_text(MAV_SEVERITY_INFO, "Set groundspeed %u", (unsigned)cmd.content.speed.target_ms);
         aparm.min_gndspeed_cm.set(cmd.content.speed.target_ms * 100);
-        return true;
+        break;
     }
 
     if (cmd.content.speed.throttle_pct > 0 && cmd.content.speed.throttle_pct <= 100) {
         gcs().send_text(MAV_SEVERITY_INFO, "Set throttle %u", (unsigned)cmd.content.speed.throttle_pct);
         aparm.throttle_cruise.set(cmd.content.speed.throttle_pct);
-        return true;
     }
-
-    return false;
 }
 
 void Plane::do_set_home(const AP_Mission::Mission_Command& cmd)

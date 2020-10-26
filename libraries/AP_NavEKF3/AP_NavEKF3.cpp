@@ -954,7 +954,7 @@ void NavEKF3::checkLaneSwitch(void)
 void NavEKF3::requestYawReset(void)
 {
     for (uint8_t i = 0; i < num_cores; i++) {
-        core[i].EKFGSF_requestYawReset();
+        core[primary].EKFGSF_requestYawReset();
     }
 }
 
@@ -1109,7 +1109,7 @@ void NavEKF3::getAccelBias(int8_t instance, Vector3f &accelBias) const
     }
 }
 
-// return estimated 1-sigma tilt error for the specified instance in radians
+// return tilt error convergence metric for the specified instance
 void NavEKF3::getTiltError(int8_t instance, float &ang) const
 {
     if (instance < 0 || instance >= num_cores) instance = primary;

@@ -108,7 +108,8 @@ bool Copter::ekf_over_threshold()
     // use EKF to get variance
     float position_variance, vel_variance, height_variance, tas_variance;
     Vector3f mag_variance;
-    ahrs.get_variances(vel_variance, position_variance, height_variance, mag_variance, tas_variance);
+    Vector2f offset;
+    ahrs.get_variances(vel_variance, position_variance, height_variance, mag_variance, tas_variance, offset);
 
     const float mag_max = fmaxf(fmaxf(mag_variance.x,mag_variance.y),mag_variance.z);
 
@@ -236,7 +237,8 @@ void Copter::check_vibration()
     // check if vertical velocity variance is at least 1 (NK4.SV >= 1.0)
     float position_variance, vel_variance, height_variance, tas_variance;
     Vector3f mag_variance;
-    if (!ahrs.get_variances(vel_variance, position_variance, height_variance, mag_variance, tas_variance)) {
+    Vector2f offset;
+    if (!ahrs.get_variances(vel_variance, position_variance, height_variance, mag_variance, tas_variance, offset)) {
         checks_succeeded = false;
     }
 

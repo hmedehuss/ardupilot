@@ -123,8 +123,10 @@ void NavEKF3_core::ResetPosition(resetDataSource posResetSource)
             lastRngBcnPassTime_ms = imuSampleTime_ms;
         } else if ((imuSampleTime_ms - extNavDataDelayed.time_ms < 250 && posResetSource == resetDataSource::DEFAULT) || posResetSource == resetDataSource::EXTNAV) {
             // use external nav data as the third preference
-            stateStruct.position.x = extNavDataDelayed.pos.x;
-            stateStruct.position.y = extNavDataDelayed.pos.y;
+            ext_nav_elements extNavCorrected = extNavDataDelayed;
+            CorrectExtNavForSensorOffset(extNavCorrected.pos);
+            stateStruct.position.x = extNavCorrected.pos.x;
+            stateStruct.position.y = extNavCorrected.pos.y;
             // set the variances as received from external nav system data
             P[7][7] = P[8][8] = sq(extNavDataDelayed.posErr);
             // clear the timeout flags and counters
@@ -321,23 +323,17 @@ bool NavEKF3_core::resetHeightDatum(void)
  */
 void NavEKF3_core::CorrectGPSForAntennaOffset(gps_elements &gps_data) const
 {
-    // return immediately if already corrected
-    if (gps_data.corrected) {
-        return;
-    }
-    gps_data.corrected = true;
-
     const Vector3f &posOffsetBody = AP::gps().get_antenna_offset(gps_data.sensor_idx) - accelPosOffset;
     if (posOffsetBody.is_zero()) {
         return;
     }
-
-    // TODO use a filtered angular rate with a group delay that matches the GPS delay
-    Vector3f angRate = imuDataDelayed.delAng * (1.0f/imuDataDelayed.delAngDT);
-    Vector3f velOffsetBody = angRate % posOffsetBody;
-    Vector3f velOffsetEarth = prevTnb.mul_transpose(velOffsetBody);
-    gps_data.vel -= velOffsetEarth;
-
+    if (fuseVelData) {
+        // TODO use a filtered angular rate with a group delay that matches the GPS delay
+        Vector3f angRate = imuDataDelayed.delAng * (1.0f/imuDataDelayed.delAngDT);
+        Vector3f velOffsetBody = angRate % posOffsetBody;
+        Vector3f velOffsetEarth = prevTnb.mul_transpose(velOffsetBody);
+        gps_data.vel -= velOffsetEarth;
+    }
     Vector3f posOffsetEarth = prevTnb.mul_transpose(posOffsetBody);
     gps_data.pos.x -= posOffsetEarth.x;
     gps_data.pos.y -= posOffsetEarth.y;
@@ -345,14 +341,8 @@ void NavEKF3_core::CorrectGPSForAntennaOffset(gps_elements &gps_data) const
 }
 
 // correct external navigation earth-frame position using sensor body-frame offset
-void NavEKF3_core::CorrectExtNavForSensorOffset(ext_nav_elements &ext_nav_data)
+void NavEKF3_core::CorrectExtNavForSensorOffset(Vector3f &ext_position)
 {
-    // return immediately if already corrected
-    if (ext_nav_data.corrected) {
-        return;
-    }
-    ext_nav_data.corrected = true;
-
 #if HAL_VISUALODOM_ENABLED
     AP_VisualOdom *visual_odom = AP::visualodom();
     if (visual_odom == nullptr) {
@@ -363,21 +353,15 @@ void NavEKF3_core::CorrectExtNavForSensorOffset(ext_nav_elements &ext_nav_data)
         return;
     }
     Vector3f posOffsetEarth = prevTnb.mul_transpose(posOffsetBody);
-    ext_nav_data.pos.x -= posOffsetEarth.x;
-    ext_nav_data.pos.y -= posOffsetEarth.y;
-    ext_nav_data.pos.z -= posOffsetEarth.z;
+    ext_position.x -= posOffsetEarth.x;
+    ext_position.y -= posOffsetEarth.y;
+    ext_position.z -= posOffsetEarth.z;
 #endif
 }
 
 // correct external navigation earth-frame velocity using sensor body-frame offset
-void NavEKF3_core::CorrectExtNavVelForSensorOffset(ext_nav_vel_elements &ext_nav_vel_data) const
+void NavEKF3_core::CorrectExtNavVelForSensorOffset(Vector3f &ext_velocity) const
 {
-    // return immediately if already corrected
-    if (ext_nav_vel_data.corrected) {
-        return;
-    }
-    ext_nav_vel_data.corrected = true;
-
 #if HAL_VISUALODOM_ENABLED
     AP_VisualOdom *visual_odom = AP::visualodom();
     if (visual_odom == nullptr) {
@@ -389,7 +373,7 @@ void NavEKF3_core::CorrectExtNavVelForSensorOffset(ext_nav_vel_elements &ext_nav
     }
     // TODO use a filtered angular rate with a group delay that matches the sensor delay
     const Vector3f angRate = imuDataDelayed.delAng * (1.0f/imuDataDelayed.delAngDT);
-    ext_nav_vel_data.vel += get_vel_correction_for_sensor_offset(posOffsetBody, prevTnb, angRate);
+    ext_velocity += get_vel_correction_for_sensor_offset(posOffsetBody, prevTnb, angRate);
 #endif
 }
 
@@ -412,12 +396,9 @@ void NavEKF3_core::SelectVelPosFusion()
 
     // Check for data at the fusion time horizon
     extNavDataToFuse = storedExtNav.recall(extNavDataDelayed, imuDataDelayed.time_ms);
-    if (extNavDataToFuse) {
-        CorrectExtNavForSensorOffset(extNavDataDelayed);
-    }
     extNavVelToFuse = storedExtNavVel.recall(extNavVelDelayed, imuDataDelayed.time_ms);
     if (extNavVelToFuse) {
-        CorrectExtNavVelForSensorOffset(extNavVelDelayed);
+        CorrectExtNavVelForSensorOffset(extNavVelDelayed.vel);
     }
 
     // Read GPS data from the sensor
@@ -425,13 +406,6 @@ void NavEKF3_core::SelectVelPosFusion()
 
     // get data that has now fallen behind the fusion time horizon
     gpsDataToFuse = storedGPS.recall(gpsDataDelayed,imuDataDelayed.time_ms);
-    if (gpsDataToFuse) {
-        CorrectGPSForAntennaOffset(gpsDataDelayed);
-    }
-
-    // initialise all possible data we may fuse
-    fusePosData = false;
-    fuseVelData = false;
 
     // Determine if we need to fuse position and velocity data on this time step
     if (gpsDataToFuse && (PV_AidingMode == AID_ABSOLUTE) && (frontend->_fusionModeGPS != 3)) {
@@ -445,6 +419,7 @@ void NavEKF3_core::SelectVelPosFusion()
         fusePosData = true;
         extNavUsedForPos = false;
 
+        CorrectGPSForAntennaOffset(gpsDataDelayed);
 
         // copy corrected GPS data to observation vector
         if (fuseVelData) {
@@ -455,11 +430,22 @@ void NavEKF3_core::SelectVelPosFusion()
         velPosObs[3] = gpsDataDelayed.pos.x;
         velPosObs[4] = gpsDataDelayed.pos.y;
     } else if (extNavDataToFuse && (PV_AidingMode == AID_ABSOLUTE) && (frontend->_fusionModeGPS == 3)) {
-        // use external nav system for horizontal position
+        // use external nav system for position
         extNavUsedForPos = true;
+        activeHgtSource = HGT_SOURCE_EXTNAV;
+        fuseVelData = false;
+        fuseHgtData = true;
         fusePosData = true;
+
+        // correct for external navigation sensor position
+        CorrectExtNavForSensorOffset(extNavDataDelayed.pos);
+
         velPosObs[3] = extNavDataDelayed.pos.x;
         velPosObs[4] = extNavDataDelayed.pos.y;
+        velPosObs[5] = extNavDataDelayed.pos.z;
+    } else {
+        fuseVelData = false;
+        fusePosData = false;
     }
 
     // fuse external navigation velocity data if available
@@ -541,7 +527,7 @@ void NavEKF3_core::SelectVelPosFusion()
         }
     }
 
-    // If we are operating without any aiding, fuse in constant position of constant
+    // If we are operating without any aiding, fuse in constnat position of constant
     // velocity measurements to constrain tilt drift. This assumes a non-manoeuvring
     // vehicle. Do this to coincide with the height fusion.
     if (fuseHgtData && PV_AidingMode == AID_NONE) {
@@ -867,7 +853,7 @@ void NavEKF3_core::FuseVelPosNED()
                     Kfusion[i] = P[i][stateIndex]*SK;
                 }
 
-                // inhibit delta angle bias state estimation by setting Kalman gains to zero
+                // inhibit delta angle bias state estmation by setting Kalman gains to zero
                 if (!inhibitDelAngBiasStates) {
                     for (uint8_t i = 10; i<=12; i++) {
                         Kfusion[i] = P[i][stateIndex]*SK;
@@ -909,7 +895,8 @@ void NavEKF3_core::FuseVelPosNED()
                 // update the covariance - take advantage of direct observation of a single state at index = stateIndex to reduce computations
                 // this is a numerically optimised implementation of standard equation P = (I - K*H)*P;
                 for (uint8_t i= 0; i<=stateIndexLim; i++) {
-                    for (uint8_t j= 0; j<=stateIndexLim; j++) {
+                    for (uint8_t j= 0; j<=stateIndexLim; j++)
+                    {
                         KHP[i][j] = Kfusion[i] * P[stateIndex][j];
                     }
                 }
@@ -1008,7 +995,6 @@ void NavEKF3_core::selectHeightForFusion()
     baroDataToFuse = storedBaro.recall(baroDataDelayed, imuDataDelayed.time_ms);
 
     bool rangeFinderDataIsFresh = (imuSampleTime_ms - rngValidMeaTime_ms < 500);
-    const bool extNavDataIsFresh = (imuSampleTime_ms - extNavMeasTime_ms < 500);
     // select height source
     if (extNavUsedForPos && (frontend->_altSource == 4)) {
         // always use external navigation as the height source if using for position.
@@ -1060,14 +1046,12 @@ void NavEKF3_core::selectHeightForFusion()
         activeHgtSource = HGT_SOURCE_GPS;
     } else if ((frontend->_altSource == 3) && validOrigin && rngBcnGoodToAlign) {
         activeHgtSource = HGT_SOURCE_BCN;
-    } else if ((frontend->_altSource == 4) && extNavDataIsFresh) {
-        activeHgtSource = HGT_SOURCE_EXTNAV;
     }
 
     // Use Baro alt as a fallback if we lose range finder, GPS, external nav or Beacon
     bool lostRngHgt = ((activeHgtSource == HGT_SOURCE_RNG) && !rangeFinderDataIsFresh);
     bool lostGpsHgt = ((activeHgtSource == HGT_SOURCE_GPS) && ((imuSampleTime_ms - lastTimeGpsReceived_ms) > 2000));
-    bool lostExtNavHgt = ((activeHgtSource == HGT_SOURCE_EXTNAV) && !extNavDataIsFresh);
+    bool lostExtNavHgt = ((activeHgtSource == HGT_SOURCE_EXTNAV) && ((imuSampleTime_ms - extNavMeasTime_ms) > 2000));
     bool lostRngBcnHgt = ((activeHgtSource == HGT_SOURCE_BCN) && ((imuSampleTime_ms - rngBcnDataDelayed.time_ms) > 2000));
     if (lostRngHgt || lostGpsHgt || lostExtNavHgt || lostRngBcnHgt) {
         activeHgtSource = HGT_SOURCE_BARO;
@@ -1102,9 +1086,7 @@ void NavEKF3_core::selectHeightForFusion()
     // Select the height measurement source
     if (extNavDataToFuse && (activeHgtSource == HGT_SOURCE_EXTNAV)) {
         hgtMea = -extNavDataDelayed.pos.z;
-        velPosObs[5] = -hgtMea;
         posDownObsNoise = sq(constrain_float(extNavDataDelayed.posErr, 0.1f, 10.0f));
-        fuseHgtData = true;
     } else if (rangeDataToFuse && (activeHgtSource == HGT_SOURCE_RNG)) {
         // using range finder data
         // correct for tilt using a flat earth model
@@ -1854,7 +1836,9 @@ void NavEKF3_core::SelectBodyOdomFusion()
 
             // Fuse data into the main filter
             FuseBodyVel();
+
         }
+
     }
 }
 

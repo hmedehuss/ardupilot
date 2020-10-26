@@ -33,9 +33,6 @@
 #include <StorageManager/StorageManager.h>
 #include <AP_BoardConfig/AP_BoardConfig.h>
 #include <stdio.h>
-#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    #include <SITL/SITL.h>
-#endif
 
 extern const AP_HAL::HAL &hal;
 
@@ -1469,9 +1466,6 @@ void AP_Param::reload_defaults_file(bool last_pass)
         }
     }
 #endif
-#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    hal.util->set_cmdline_parameters();
-#endif
 }
 
 
@@ -1985,16 +1979,6 @@ bool AP_Param::parse_param_line(char *line, char **vname, float &value, bool &re
     if (strlen(pname) > AP_MAX_NAME_SIZE) {
         return false;
     }
-
-#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    // Workaround to prevent FORMAT_VERSION in param file resulting in invalid
-    // EEPROM. For details, see: https://github.com/ArduPilot/ardupilot/issues/15579
-    if (strcmp(pname, "FORMAT_VERSION") == 0) {
-        ::printf("Warning: Ignoring FORMAT_VERSION in param file\n");
-        return false;
-    }
-#endif
-
     const char *value_s = strtok_r(nullptr, ", =\t\r\n", &saveptr);
     if (value_s == nullptr) {
         return false;

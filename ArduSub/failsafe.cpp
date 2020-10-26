@@ -110,9 +110,10 @@ void Sub::failsafe_ekf_check()
 
     float posVar, hgtVar, tasVar;
     Vector3f magVar;
+    Vector2f offset;
     float compass_variance;
     float vel_variance;
-    ahrs.get_variances(vel_variance, posVar, hgtVar, magVar, tasVar);
+    ahrs.get_variances(vel_variance, posVar, hgtVar, magVar, tasVar, offset);
     compass_variance = magVar.length();
 
     if (compass_variance < g.fs_ekf_thresh && vel_variance < g.fs_ekf_thresh) {

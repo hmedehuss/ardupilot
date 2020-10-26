@@ -19,11 +19,13 @@
  */
 #pragma once
 
-#include <AP_Common/Location.h>
 #include <AP_Math/AP_Math.h>
 #include <AP_Param/AP_Param.h>
 #include <GCS_MAVLink/GCS_MAVLink.h>
 #include <AP_NavEKF/AP_Nav_Common.h>
+#include <AP_Airspeed/AP_Airspeed.h>
+#include <AP_Compass/AP_Compass.h>
+#include <AP_Logger/LogStructure.h>
 
 class NavEKF3_core;
 class AP_AHRS;
@@ -110,7 +112,7 @@ public:
     // An out of range instance (eg -1) returns data for the primary instance
     void getAccelBias(int8_t instance, Vector3f &accelBias) const;
 
-    // return estimated 1-sigma tilt error for the specified instance in radians
+    // return tilt error convergence metric for the specified instance
     // An out of range instance (eg -1) returns data for the primary instance
     void getTiltError(int8_t instance, float &ang) const;
 

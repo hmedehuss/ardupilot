@@ -976,26 +976,6 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     AP_GROUPINFO("ACRO_OPTIONS", 39, ParametersG2, acro_options, 0),
 #endif
 
-
-#if MODE_AUTO_ENABLED == ENABLED
-    // @Param: AUTO_OPTIONS
-    // @DisplayName: Auto mode options
-    // @Description: A range of options that can be applied to change auto mode behaviour. Allow Arming allows the copter to be armed in Auto. Allow Takeoff Without Raising Throttle allows takeoff without the pilot having to raise the throttle
-    // @Bitmask: 0:Allow Arming,1:Allow Takeoff Without Raising Throttle
-    // @User: Advanced
-    AP_GROUPINFO("AUTO_OPTIONS", 40, ParametersG2, auto_options, 0),
-#endif
-
-#if MODE_GUIDED_ENABLED == ENABLED
-    // @Param: GUID_OPTIONS
-    // @DisplayName: Guided mode options
-    // @Description: Options that can be applied to change guided mode behaviour
-    // @Bitmask: 0:Allow Arming from Transmitter
-    // @User: Advanced
-    AP_GROUPINFO("GUID_OPTIONS", 41, ParametersG2, guided_options, 0),
-#endif
-
-
     AP_GROUPEND
 };
 

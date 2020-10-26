@@ -216,10 +216,11 @@ void AP_RCTelemetry::check_ekf_status(void)
     bool get_variance;
     float velVar, posVar, hgtVar, tasVar;
     Vector3f magVar;
+    Vector2f offset;
     {
         AP_AHRS &_ahrs = AP::ahrs();
         WITH_SEMAPHORE(_ahrs.get_semaphore());
-        get_variance = _ahrs.get_variances(velVar, posVar, hgtVar, magVar, tasVar);
+        get_variance = _ahrs.get_variances(velVar, posVar, hgtVar, magVar, tasVar, offset);
     }
     if (get_variance) {
         uint32_t now = AP_HAL::millis();
