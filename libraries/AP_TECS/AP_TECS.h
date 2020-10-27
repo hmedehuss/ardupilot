@@ -204,7 +204,6 @@ private:
 
     // estimated climb rate (m/s)
     float _climb_rate;
-    float _PID;
 
     /*
       a filter to estimate climb rate if we don't have it from the EKF
@@ -332,10 +331,6 @@ private:
     float _SPEdot;
     float _SKEdot;
 
-    //Hussein
-    float _Theta_est;
-    float _Theta_est_previous;
-
     // Specific energy error quantities
     float _STE_error;
 
@@ -412,15 +407,4 @@ private:
 
     // current time constant
     float timeConstant(void) const;
-
-
-    //Hussein
-    float _error_Tas{0};
-    float _CD0, _k1, _k2;
-    AP_Float _Kc, _kk1;
-    float _backstepping, _last_backstepping ;
-
-    float _aoa_rad;
-    float _ff;
-
 };
