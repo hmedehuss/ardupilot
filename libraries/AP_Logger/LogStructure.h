@@ -281,8 +281,9 @@ static_assert(sizeof(log_ISBD) < 256, "log_ISBD is over-size");
 struct PACKED log_Vibe {
     LOG_PACKET_HEADER;
     uint64_t time_us;
+    uint8_t imu;
     float vibe_x, vibe_y, vibe_z;
-    uint32_t clipping_0, clipping_1, clipping_2;
+    uint32_t clipping;
 };
 
 struct PACKED log_RCIN {
@@ -648,6 +649,7 @@ struct PACKED log_VisualPosition {
     float pos_err;  // meters
     float ang_err;  // radians
     uint8_t reset_counter;
+    uint8_t ignored;
 };
 
 struct PACKED log_VisualVelocity {
@@ -660,6 +662,7 @@ struct PACKED log_VisualVelocity {
     float vel_z;
     float vel_err;
     uint8_t reset_counter;
+    uint8_t ignored;
 };
 
 struct PACKED log_ekfBodyOdomDebug {
@@ -1271,13 +1274,30 @@ struct PACKED log_Winch {
     int8_t temp;
 };
 
+struct PACKED log_PSC {
+    LOG_PACKET_HEADER;
+    uint64_t time_us;
+    float pos_target_x;
+    float pos_target_Y;
+    float position_x;
+    float position_y;
+    float vel_target_x;
+    float vel_target_y;
+    float velocity_x;
+    float velocity_y;
+    float accel_target_x;
+    float accel_target_y;
+    float accel_x;
+    float accel_y;
+};
+
 // FMT messages define all message formats other than FMT
 // UNIT messages define units which can be referenced by FMTU messages
 // FMTU messages associate types (e.g. centimeters/second/second) to FMT message fields
 
 #define ACC_LABELS "TimeUS,SampleUS,AccX,AccY,AccZ"
 #define ACC_FMT   "QQfff"
-#define ACC_UNITS "ssnnn"
+#define ACC_UNITS "ssooo"
 #define ACC_MULTS "FF000"
 
 // see "struct sensor" in AP_Baro.h and "Write_Baro":
@@ -1431,7 +1451,7 @@ struct PACKED log_Winch {
 // @Field: CurrTot: current * time
 // @Field: EnrgTot: energy this battery has produced
 // @Field: Temp: measured temperature
-// @Field: Res: estimated temperature resistance
+// @Field: Res: estimated battery resistance
 
 // @LoggerMessage: BCL
 // @Description: Battery cell voltage information
@@ -2219,12 +2239,11 @@ struct PACKED log_Winch {
 // @LoggerMessage: VIBE
 // @Description: Processed (acceleration) vibration information
 // @Field: TimeUS: Time since system startup
+// @Field: IMU: Vibration instance number
 // @Field: VibeX: Primary accelerometer filtered vibration, x-axis
 // @Field: VibeY: Primary accelerometer filtered vibration, y-axis
 // @Field: VibeZ: Primary accelerometer filtered vibration, z-axis
-// @Field: Clip0: Number of clipping events on 1st accelerometer
-// @Field: Clip1: Number of clipping events on 2nd accelerometer
-// @Field: Clip2: Number of clipping events on 3rd accelerometer
+// @Field: Clip: Number of clipping events on 1st accelerometer
 
 // @LoggerMessage: VISO
 // @Description: Visual Odometry
@@ -2251,7 +2270,8 @@ struct PACKED log_Winch {
 // @Field: Yaw: Yaw angle
 // @Field: PErr: Position estimate error
 // @Field: AErr: Attitude estimate error
-// @Field: RstCnt: Position reset counter
+// @Field: Rst: Position reset counter
+// @Field: Ign: Ignored
 
 // @LoggerMessage: VISV
 // @Description: Vision Velocity
@@ -2262,7 +2282,8 @@ struct PACKED log_Winch {
 // @Field: VY: Velocity Y-axis (East-West)
 // @Field: VZ: Velocity Z-axis (Down-Up)
 // @Field: VErr: Velocity estimate error
-// @Field: RstCnt: Velocity reset counter
+// @Field: Rst: Velocity reset counter
+// @Field: Ign: Ignored
 
 // @LoggerMessage: WENC
 // @Description: Wheel encoder measurements
@@ -2451,6 +2472,22 @@ struct PACKED log_Winch {
 // @Field: Vcc: Voltage to Motor
 // @Field: Temp: Motor temperature
 
+// @LoggerMessage: PSC
+// @Description: Position Control data
+// @Field: TimeUS: Time since system startup
+// @Field: TPX: Target position relative to origin, X-axis
+// @Field: TPY: Target position relative to origin, Y-axis
+// @Field: PX: Position relative to origin, X-axis
+// @Field: PY: Position relative to origin, Y-axis
+// @Field: TVX: Target velocity, X-axis
+// @Field: TVY: Target velocity, Y-axis
+// @Field: VX: Velocity, X-axis
+// @Field: VY: Velocity, Y-axis
+// @Field: TAX: Target acceleration, X-axis
+// @Field: TAY: Target acceleration, Y-axis
+// @Field: AX: Acceleration, X-axis
+// @Field: AY: Acceleration, Y-axis
+
 // messages for all boards
 #define LOG_BASE_STRUCTURES \
     { LOG_FORMAT_MSG, sizeof(log_Format), \
@@ -2626,7 +2663,7 @@ struct PACKED log_Winch {
     { LOG_BAR3_MSG, sizeof(log_BARO), \
       "BAR3",  BARO_FMT, BARO_LABELS, BARO_UNITS, BARO_MULTS }, \
     { LOG_VIBE_MSG, sizeof(log_Vibe), \
-      "VIBE", "QfffIII",     "TimeUS,VibeX,VibeY,VibeZ,Clip0,Clip1,Clip2", "s------", "F------" }, \
+      "VIBE", "QBfffI",     "TimeUS,IMU,VibeX,VibeY,VibeZ,Clip", "s#----", "F-----" }, \
     { LOG_IMUDT_MSG, sizeof(log_IMUDT), \
       "IMT",IMT_FMT,IMT_LABELS, IMT_UNITS, IMT_MULTS }, \
     { LOG_IMUDT2_MSG, sizeof(log_IMUDT), \
@@ -2652,9 +2689,9 @@ struct PACKED log_Winch {
     { LOG_VISUALODOM_MSG, sizeof(log_VisualOdom), \
       "VISO", "Qffffffff", "TimeUS,dt,AngDX,AngDY,AngDZ,PosDX,PosDY,PosDZ,conf", "ssrrrmmm-", "FF000000-" }, \
     { LOG_VISUALPOS_MSG, sizeof(log_VisualPosition), \
-      "VISP", "QQIffffffffB", "TimeUS,RTimeUS,CTimeMS,PX,PY,PZ,Roll,Pitch,Yaw,PErr,AErr,RstCnt", "sssmmmddhmd-", "FFC00000000-" }, \
+      "VISP", "QQIffffffffBB", "TimeUS,RTimeUS,CTimeMS,PX,PY,PZ,Roll,Pitch,Yaw,PErr,AErr,Rst,Ign", "sssmmmddhmd--", "FFC00000000--" }, \
     { LOG_VISUALVEL_MSG, sizeof(log_VisualVelocity), \
-      "VISV", "QQIffffB", "TimeUS,RTimeUS,CTimeMS,VX,VY,VZ,VErr,RstCnt", "sssnnnn-", "FFC0000-" }, \
+      "VISV", "QQIffffBB", "TimeUS,RTimeUS,CTimeMS,VX,VY,VZ,VErr,Rst,Ign", "sssnnnn--", "FFC0000--" }, \
     { LOG_OPTFLOW_MSG, sizeof(log_Optflow), \
       "OF",   "QBffff",   "TimeUS,Qual,flowX,flowY,bodyX,bodyY", "s-EEnn", "F-0000" }, \
     { LOG_WHEELENCODER_MSG, sizeof(log_WheelEncoder), \
@@ -2668,7 +2705,9 @@ struct PACKED log_Winch {
     { LOG_ERROR_MSG, sizeof(log_Error), \
       "ERR",   "QBB",         "TimeUS,Subsys,ECode", "s--", "F--" }, \
     { LOG_WINCH_MSG, sizeof(log_Winch), \
-      "WINC", "QBBBBBfffHfb", "TimeUS,Heal,ThEnd,Mov,Clut,Mode,DLen,Len,DRate,Tens,Vcc,Temp", "s-----mmn?vO", "F-----000000" }
+      "WINC", "QBBBBBfffHfb", "TimeUS,Heal,ThEnd,Mov,Clut,Mode,DLen,Len,DRate,Tens,Vcc,Temp", "s-----mmn?vO", "F-----000000" }, \
+    { LOG_PSC_MSG, sizeof(log_PSC), \
+      "PSC", "Qffffffffffff", "TimeUS,TPX,TPY,PX,PY,TVX,TVY,VX,VY,TAX,TAY,AX,AY", "smmmmnnnnoooo", "F000000000000" }
 
 // @LoggerMessage: SBPH
 // @Description: Swift Health Data
@@ -2830,6 +2869,7 @@ enum LogMessages : uint8_t {
     LOG_VISUALVEL_MSG,
     LOG_SIMPLE_AVOID_MSG,
     LOG_WINCH_MSG,
+    LOG_PSC_MSG,
 
     _LOG_LAST_MSG_
 };

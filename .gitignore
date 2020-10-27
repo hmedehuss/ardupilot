@@ -132,3 +132,4 @@ segv_*out
 persistent.dat
 dumpstack_*out
 ArduPlane/createTags
+build.tmp.binaries/
