@@ -583,9 +583,9 @@ void SITL_State::_output_to_flightgear(void)
 /*
   output motor command to UDP port
  */
-const char *destIPAdress = "127.0.0.1";
-unsigned int inputPort = 51002;
-unsigned int outputPort = 52002;
+const char *destIPAdress = "192.168.0.202";
+unsigned int inputPort = 51006;
+unsigned int outputPort = 52006;
 
 static SOCKET socket_input;
 //static SOCKADDR_IN addr_input;
@@ -595,11 +595,11 @@ static SOCKADDR_IN addr_output;
 
 void SITL_State::_output_motor_command_to_UDP(void)
 {
-	// Crétaion d'une structure 'fdm' dans laquelle copier les données que l'ont veut extraire
-	// Eventuellement, création d'une autre structure que la structure fdm existante, pour
-	// avoir une structure spécifique à notre besoin
+	// Cr\E9taion d'une structure 'fdm' dans laquelle copier les donn\E9es que l'ont veut extraire
+	// Eventuellement, cr\E9ation d'une autre structure que la structure fdm existante, pour
+	// avoir une structure sp\E9cifique \E0 notre besoin
 	// Remplir la structure
-	// creer une 'fg_socket' répondant à notre besoin.
+	// creer une 'fg_socket' r\E9pondant \E0 notre besoin.
 
 	init_UPD_comm(destIPAdress, inputPort, outputPort);
 	char buffer[4096];
@@ -609,15 +609,24 @@ void SITL_State::_output_motor_command_to_UDP(void)
 	{
 		sprintf(buffer, "%f ", 1000 - pwm_input[i]/1000);
 	}*/
-    sprintf(buffer, "%f %f %f %f %f %f %f %f ",
-           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE and TWO
-           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE and TWO
-           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_ONE and TWO
-           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_ONE and TWO
-           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_ONE and TWO
-           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_ONE and TWO
-           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE and TWO
-           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_ONE and TWO
+    sprintf(buffer, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f ",
+           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE
+           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_TWO
+           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE
+           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_TWO
+           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_ONE
+           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_TWO
+           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_ONE
+           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_TWO
+           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_ONE
+           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_TWO
+           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_ONE
+           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_TWO
+           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE
+           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_TWO
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_ONE
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_TWO
+
 
     if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
 	{
