@@ -6,7 +6,7 @@ cd "\Program Files\%FGDIR%\bin"
 fgfs ^
     --native-fdm=socket,in,10,,5503,udp ^
     --fdm=external ^
-    --aircraft=c172p ^
+    --aircraft=c-2a ^
     --fg-aircraft=%AUTOTESTDIR% ^
     --airport=KSFO ^
     --geometry=650x550 ^
