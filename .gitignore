@@ -130,6 +130,7 @@ segv_*out
 persistent.dat
 dumpstack_*out
 ArduPlane/createTags
+<<<<<<< HEAD
 /BUILD.md
 /COPYING.txt
 /Dockerfile
@@ -140,3 +141,5 @@ ArduPlane/createTags
 /appveyor.yml
 /waf
 /wscript
+=======
+>>>>>>> parent of b4705b142b... Merge remote-tracking branch 'upstream/master' into Viable

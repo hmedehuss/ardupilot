@@ -380,8 +380,11 @@ void SRV_Channels::push()
     }
 #endif // HAL_NUM_CAN_IFACES
 }
+<<<<<<< HEAD
 
 void SRV_Channels::set_AutoMode(bool in_modeauto)
 {
     in_auto = in_modeauto;
 }
+=======
+>>>>>>> parent of b4705b142b... Merge remote-tracking branch 'upstream/master' into Viable
