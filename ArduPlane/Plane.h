@@ -296,6 +296,11 @@ private:
     // time of last mode change
     uint32_t last_mode_change_ms;
 
+    // time at which a fault has been detected
+    uint32_t fault_start;
+
+    uint16_t last_fault_mask = 0;
+
     // Used to maintain the state of the previous control switch position
     // This is set to 254 when we need to re-read the switch
     uint8_t oldSwitchPosition = 254;
@@ -1142,6 +1147,7 @@ public:
     void failsafe_check(void);
     bool set_target_location(const Location& target_loc) override;
     bool get_target_location(Location& target_loc) override;
+    void channel_fault_detector(void);
 };
 
 extern Plane plane;

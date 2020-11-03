@@ -198,6 +198,40 @@ void SRV_Channels::save_trim(void)
     trimmed_mask = 0;
 }
 
+bool SRV_Channels::fault_sniffer(uint16_t &fault_mask){
+	bool is_fault = false;
+	for (uint8_t i=0; i<NUM_SERVO_CHANNELS; i++) {
+
+		is_fault = is_fault || channels[i].whistle_blower;
+
+		if(channels[i].whistle_blower == true){
+			fault_mask = fault_mask + (1U<<i);
+		}
+	}
+	return is_fault;
+}
+
+void SRV_Channels::fault_recovery(uint16_t fault_mask){
+
+	if(fault_mask == SRV_Channels::get_output_channel_mask(SRV_Channel::k_throttleRight)){
+		functions[SRV_Channel::k_throttleLeft].fault_config = 0;
+	}
+	else if(fault_mask == SRV_Channels::get_output_channel_mask(SRV_Channel::k_motor1)){
+		functions[SRV_Channel::k_motor2].fault_config = 1.5;
+		functions[SRV_Channel::k_motor3].fault_config = 1;
+		functions[SRV_Channel::k_motor4].fault_config = 1.5;
+		functions[SRV_Channel::k_motor5].fault_config = 1;
+		functions[SRV_Channel::k_motor6].fault_config = 0.5;
+		functions[SRV_Channel::k_motor7].fault_config = 1;
+		functions[SRV_Channel::k_motor8].fault_config = 1.5;
+	}
+	else{
+		for (uint8_t i=0; i<NUM_SERVO_CHANNELS; i++){
+			functions[channels[i].function].fault_config = 1;
+		}
+	}
+}
+
 void SRV_Channels::setup_failsafe_trim_all_non_motors(void)
 {
     for (uint8_t i = 0; i < NUM_SERVO_CHANNELS; i++) {

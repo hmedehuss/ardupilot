@@ -262,6 +262,9 @@ private:
     // set_range() or set_angle() has been called
     bool type_setup:1;
 
+    // A fault has been detected on the channel and the whistle blower say true;
+    bool whistle_blower{false};
+
     // the hal channel number
     uint8_t ch_num;
 
@@ -356,6 +359,8 @@ public:
     // get output channel mask for a function
     static uint16_t get_output_channel_mask(SRV_Channel::Aux_servo_function_t function);
     
+    static float get_fault_config(SRV_Channel::Aux_servo_function_t function);
+
     // limit slew rate to given limit in percent per second
     static void limit_slew_rate(SRV_Channel::Aux_servo_function_t function, float slew_rate, float dt);
 
@@ -376,6 +381,12 @@ public:
     
     // save trims
     void save_trim(void);
+
+    // Sniff channel to detect fail
+    static bool fault_sniffer(uint16_t &fault_mask);
+
+    // If a fault has been detected and time since the detection is out of 1 sec make a reconfiguration in the mixing
+	static void fault_recovery(uint16_t fault_mask);
 
     // setup IO failsafe for all channels to trim
     static void setup_failsafe_trim_all_non_motors(void);
@@ -567,6 +578,9 @@ private:
 
         // scaled output for this function
         int16_t output_scaled;
+
+        // Set to 1, for each servo, in nominal flight
+        float  fault_config = 1;
     } functions[SRV_Channel::k_nr_aux_servo_functions];
 
     AP_Int8 auto_trim;

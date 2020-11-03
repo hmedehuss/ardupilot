@@ -323,6 +323,14 @@ void AP_MotorsMatrix::output_armed_stabilizing()
     // compensation_gain can never be zero
     _throttle_out = throttle_thrust_best_plus_adj / compensation_gain;
 
+    //Emergency recovery in case of failure
+    SRV_Channel::Aux_servo_function_t function;
+    for (i = 0; i < AP_MOTORS_MAX_NUM_MOTORS; i++) {
+		if (motor_enabled[i]) {
+			function = SRV_Channels::get_motor_function(i);
+			_thrust_rpyt_out[i] = SRV_Channels::get_fault_config(function) * _thrust_rpyt_out[i];
+		}
+	}
     // check for failed motor
     check_for_failed_motor(throttle_thrust_best_plus_adj);
 }
