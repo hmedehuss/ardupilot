@@ -4,7 +4,6 @@
 /// @brief   ArduCopter attitude control library
 
 #include "AC_AttitudeControl.h"
-#include <AC_WPNAV/AC_WPNAV.h>
 #include <AP_Motors/AP_MotorsMulticopter.h>
 #include <AP_InertialNav/AP_InertialNav.h>     // Inertial Navigation library
 #include <AC_AttitudeControl/AC_PosControl.h>      // Position control library
