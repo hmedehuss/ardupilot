@@ -290,11 +290,11 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     AP_GROUPINFO("BLEND_TC", 21, AP_GPS, _blend_tc, 10.0f),
 #endif
 
-#if GPS_UBLOX_MOVING_BASELINE
+#if GPS_MOVING_BASELINE
     // @Param: DRV_OPTIONS
     // @DisplayName: driver options
     // @Description: Additional backend specific options
-    // @Bitmask: 0:Use UART2 for moving baseline on ublox
+    // @Bitmask: 0:Use UART2 for moving baseline on ublox,1:Use base station for GPS yaw on SBF
     // @User: Advanced
     AP_GROUPINFO("DRV_OPTIONS", 22, AP_GPS, _driver_options, 0),
 #endif
@@ -318,6 +318,20 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     // @RebootRequired: True
     AP_GROUPINFO("COM_PORT2", 24, AP_GPS, _com_port[1], 1),
 #endif
+
+#if GPS_MOVING_BASELINE
+
+    // @Group: MB1_
+    // @Path: MovingBase.cpp
+    AP_SUBGROUPINFO(mb_params[0], "MB1_", 25, AP_GPS, MovingBase),
+
+#if GPS_MAX_RECEIVERS > 1
+    // @Group: MB2_
+    // @Path: MovingBase.cpp
+    AP_SUBGROUPINFO(mb_params[1], "MB2_", 26, AP_GPS, MovingBase),
+#endif // GPS_MAX_RECEIVERS > 1
+
+#endif // GPS_MOVING_BASELINE
 
     AP_GROUPEND
 };
@@ -1264,16 +1278,17 @@ void AP_GPS::handle_gps_rtcm_fragment(uint8_t flags, const uint8_t *data, uint8_
         }
     }
 
-    uint8_t fragment = (flags >> 1U) & 0x03;
-    uint8_t sequence = (flags >> 3U) & 0x1F;
+    const uint8_t fragment = (flags >> 1U) & 0x03;
+    const uint8_t sequence = (flags >> 3U) & 0x1F;
 
     // see if this fragment is consistent with existing fragments
     if (rtcm_buffer->fragments_received &&
         (rtcm_buffer->sequence != sequence ||
-        (rtcm_buffer->fragments_received & (1U<<fragment)))) {
+         (rtcm_buffer->fragments_received & (1U<<fragment)))) {
         // we have one or more partial fragments already received
         // which conflict with the new fragment, discard previous fragments
-        memset(rtcm_buffer, 0, sizeof(*rtcm_buffer));
+        rtcm_buffer->fragment_count = 0;
+        rtcm_buffer->fragments_received = 0;
     }
 
     // add this fragment
@@ -1302,7 +1317,8 @@ void AP_GPS::handle_gps_rtcm_fragment(uint8_t flags, const uint8_t *data, uint8_
         rtcm_buffer->fragments_received == (1U << rtcm_buffer->fragment_count) - 1) {
         // we have them all, inject
         inject_data(rtcm_buffer->buffer, rtcm_buffer->total_length);
-        memset(rtcm_buffer, 0, sizeof(*rtcm_buffer));
+        rtcm_buffer->fragment_count = 0;
+        rtcm_buffer->fragments_received = 0;
     }
 }
 

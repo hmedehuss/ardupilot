@@ -260,14 +260,40 @@ template float wrap_2PI<float>(const float radian);
 template float wrap_2PI<double>(const double radian);
 
 template <typename T>
-T constrain_value(const T amt, const T low, const T high)
+T constrain_value_line(const T amt, const T low, const T high, uint32_t line)
 {
     // the check for NaN as a float prevents propagation of floating point
     // errors through any function that uses constrain_value(). The normal
     // float semantics already handle -Inf and +Inf
     if (isnan(amt)) {
-        INTERNAL_ERROR(AP_InternalError::error_t::constraining_nan);
+        AP::internalerror().error(AP_InternalError::error_t::constraining_nan, line);
         return (low + high) / 2;
+    }
+
+    if (amt < low) {
+        return low;
+    }
+
+    if (amt > high) {
+        return high;
+    }
+
+    return amt;
+}
+
+template float constrain_value_line<float>(const float amt, const float low, const float high, uint32_t line);
+
+template <typename T>
+T constrain_value(const T amt, const T low, const T high)
+{
+    // the check for NaN as a float prevents propagation of floating point
+    // errors through any function that uses constrain_value(). The normal
+    // float semantics already handle -Inf and +Inf
+    if (std::is_floating_point<T>::value) {
+        if (isnan(amt)) {
+            INTERNAL_ERROR(AP_InternalError::error_t::constraining_nan);
+            return (low + high) / 2;
+        }
     }
 
     if (amt < low) {

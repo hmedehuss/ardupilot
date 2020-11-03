@@ -129,6 +129,9 @@ public:
     // check if we have completed transition to fixed wing
     bool tailsitter_transition_fw_complete(void);
 
+    // return true if we are a tailsitter in FW flight
+    bool is_tailsitter_in_fw_flight(void) const;
+
     // check if we have completed transition to vtol
     bool tailsitter_transition_vtol_complete(void) const;
 
@@ -489,7 +492,6 @@ private:
     enum tailsitter_gscl_mask {
         TAILSITTER_GSCL_BOOST   = (1U<<0),
         TAILSITTER_GSCL_ATT_THR = (1U<<1),
-        TAILSITTER_GSCL_INTERP  = (1U<<2),
     };
 
     // tailsitter control variables
@@ -511,7 +513,8 @@ private:
     } tailsitter;
 
     // tailsitter speed scaler
-    float last_spd_scaler = 1.0f;
+    float last_spd_scaler = 1.0f; // used to slew rate limiting with TAILSITTER_GSCL_ATT_THR option
+    float log_spd_scaler; // for QTUN log
 
     // the attitude view of the VTOL attitude controller
     AP_AHRS_View *ahrs_view;

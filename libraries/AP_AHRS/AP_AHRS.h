@@ -532,7 +532,7 @@ public:
     // indicates perfect consistency between the measurement and the EKF solution and a value of of 1 is the maximum
     // inconsistency that will be accepted by the filter
     // boolean false is returned if variances are not available
-    virtual bool get_variances(float &velVar, float &posVar, float &hgtVar, Vector3f &magVar, float &tasVar, Vector2f &offset) const {
+    virtual bool get_variances(float &velVar, float &posVar, float &hgtVar, Vector3f &magVar, float &tasVar) const {
         return false;
     }
 
@@ -719,12 +719,6 @@ private:
 
 #include "AP_AHRS_DCM.h"
 #include "AP_AHRS_NavEKF.h"
-
-#if AP_AHRS_NAVEKF_AVAILABLE
-#define AP_AHRS_TYPE AP_AHRS_NavEKF
-#else
-#define AP_AHRS_TYPE AP_AHRS
-#endif
 
 namespace AP {
     AP_AHRS &ahrs();

@@ -33,7 +33,7 @@ Plane::Plane(const char *frame_str) :
        vertically against gravity when the motor is at hover_throttle
     */
     thrust_scale = (mass * GRAVITY_MSS) / hover_throttle;
-    frame_height = 0.1f;
+    frame_height = 0.2f;
     num_motors = 1;
 
     ground_behavior = GROUND_BEHAVIOR_FWD_ONLY;
@@ -318,6 +318,9 @@ void Plane::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     throttle = constrain_float(throttle, 0.0, 1.0);
 
     float thrust     = throttle;
+
+    battery_voltage = sitl->batt_voltage - 0.7*throttle;
+    battery_current = 50.0f*throttle;
 
     if (ice_engine) {
         thrust = icengine.update(input);
