@@ -24,8 +24,7 @@
 using namespace SITL;
 
 MultiCopter::MultiCopter(const char *frame_str) :
-    Aircraft(frame_str),
-    frame(nullptr)
+    Aircraft(frame_str)
 {
     frame = Frame::find_frame(frame_str);
     if (frame == nullptr) {
