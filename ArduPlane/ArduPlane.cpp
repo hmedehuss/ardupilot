@@ -48,6 +48,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(read_airspeed,          10,    100),
     SCHED_TASK(update_alt,             10,    200),
     SCHED_TASK(adjust_altitude_target, 10,    200),
+	SCHED_TASK(channel_fault_detector, 5, 200),
 #if ADVANCED_FAILSAFE == ENABLED
     SCHED_TASK(afs_fs_check,           10,    100),
 #endif
@@ -654,6 +655,29 @@ bool Plane::get_target_location(Location& target_loc)
         break;
     }
     return false;
+}
+
+void Plane::channel_fault_detector(void){
+	bool fault_detected;
+	uint16_t fault_mask = 0;
+
+	fault_detected = SRV_Channels::fault_sniffer(fault_mask);
+	if(!fault_detected){
+		fault_start = AP_HAL::millis();
+	}
+	//printf("%d\n", (int)fault_detected);// uncoment to check if is fault is detected when it should be.
+	bool timeout = ((AP_HAL::millis() - fault_start) / 1e3 > 1);
+
+	if (fault_mask != last_fault_mask && timeout){
+		if(fault_mask == 0){
+			gcs().send_text(MAV_SEVERITY_INFO, "Nominal flight recovered");
+		}
+		else{
+			gcs().send_text(MAV_SEVERITY_INFO, "Failure number %d hapenned", fault_mask);
+		}
+		last_fault_mask = fault_mask;
+		SRV_Channels::fault_recovery(fault_mask);
+	}
 }
 
 AP_HAL_MAIN_CALLBACKS(&plane);

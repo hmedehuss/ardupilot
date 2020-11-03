@@ -509,8 +509,10 @@ SRV_Channel *SRV_Channels::get_channel_for(SRV_Channel::Aux_servo_function_t fun
 
 void SRV_Channels::set_output_scaled(SRV_Channel::Aux_servo_function_t function, int16_t value)
 {
+	float allocation_mixing = (float)value * functions[function].fault_config;
+	int16_t send_to_mot_value = (int)allocation_mixing;
     if (function < SRV_Channel::k_nr_aux_servo_functions) {
-        functions[function].output_scaled = value;
+        functions[function].output_scaled = send_to_mot_value;
         SRV_Channel::have_pwm_mask &= ~functions[function].channel_mask;
     }
 }
@@ -537,6 +539,9 @@ uint16_t SRV_Channels::get_output_channel_mask(SRV_Channel::Aux_servo_function_t
     return 0;
 }
 
+float SRV_Channels::get_fault_config(SRV_Channel::Aux_servo_function_t function){
+	return functions[function].fault_config;
+}
 
 // set the trim for a function channel to given pwm
 void SRV_Channels::set_trim_to_pwm_for(SRV_Channel::Aux_servo_function_t function, int16_t pwm)

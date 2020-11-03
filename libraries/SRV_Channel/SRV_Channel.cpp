@@ -249,5 +249,12 @@ void SRV_Channel::sim_failure(uint64_t t0){
 
 bool SRV_Channel::do_failure(uint64_t t0){
 	bool time_out = (float) ((AP_HAL::micros64()-t0) / (1.0e6))> (float)failure_time;
+
+	if(is_servofailure_enable && time_out){
+		whistle_blower = true;// fault is injected virtually so withle_blower is set to true... Should be replaced by a fault detection algorithm which will set whistle_blower to true
+	}
+	else{
+		whistle_blower = false;
+	}
 	return (is_servofailure_enable && time_out);
 }
