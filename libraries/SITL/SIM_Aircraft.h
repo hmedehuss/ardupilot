@@ -146,8 +146,12 @@ public:
     void set_gripper_epm(Gripper_EPM *_gripper_epm) { gripper_epm = _gripper_epm; }
     void set_precland(SIM_Precland *_precland);
     void set_i2c(class I2C *_i2c) { i2c = _i2c; }
+    static void set_IMU_values(Vector3f body_accel, Vector3f rot_speed);
 
 protected:
+    static Vector3f UDP_accel_body;
+    static Vector3f UDP_speed_rot;
+
     SITL *sitl;
     Location home;
     bool home_is_set;

@@ -36,6 +36,9 @@
 
 using namespace SITL;
 
+Vector3f Aircraft::UDP_accel_body{0.0f, 0.0f, 0.0f};
+Vector3f Aircraft::UDP_speed_rot{0.0f, 0.0f, 0.0f};
+
 /*
   parent class for all simulator types
  */
@@ -519,7 +522,8 @@ void Aircraft::update_dynamics(const Vector3f &rot_accel)
     const float delta_time = frame_time_us * 1.0e-6f;
 
     // update rotational rates in body frame
-    gyro += rot_accel * delta_time;
+    //gyro += rot_accel * delta_time;
+    gyro = UDP_speed_rot;
 
     gyro.x = constrain_float(gyro.x, -radians(2000.0f), radians(2000.0f));
     gyro.y = constrain_float(gyro.y, -radians(2000.0f), radians(2000.0f));
@@ -993,4 +997,9 @@ void Aircraft::add_twist_forces(Vector3f &rot_accel)
         sitl->twist.start_ms = 0;
         sitl->twist.t = 0;
     }
+}
+
+void Aircraft::set_IMU_values(Vector3f body_accel, Vector3f rot_speed){
+	UDP_accel_body = body_accel;
+	UDP_speed_rot = rot_speed;
 }
