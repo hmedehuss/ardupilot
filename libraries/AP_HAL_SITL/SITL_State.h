@@ -112,6 +112,7 @@ public:
     static bool parse_home(const char *home_str,
                            Location &loc,
                            float &yaw_degrees);
+    static Vector3f get_rot_speed(){return speed_rot;};
 
 private:
     void _parse_command_line(int argc, char * const argv[]);
@@ -169,11 +170,18 @@ private:
     bool _read_rc_sitl_input();
     void _fdm_input_local(void);
     void _output_to_flightgear(void);
-    void _output_motor_command_to_UDP(void);
-    int init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out);
-    int sock_error(void);
-    void sock_err_message(const char* msg);
-    void close_UDP_comm(void);
+
+    ///////////////// UDP Comm section /////////////////
+    static Vector3f speed_rot;
+    static Vector3f accel_body;
+    int _init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out);
+    void _UDP_comm_in(void);
+    void _UDP_comm_out(void);
+    int _sock_error(void);
+    void _sock_err_message(const char* msg);
+    void _close_UDP_comm(void);
+    ///////////////// end UDP Comm section /////////////////
+
     void _simulator_servos(struct sitl_input &input);
     void _simulator_output(bool synthetic_clock_mode);
     uint16_t _airspeed_sensor(float airspeed);

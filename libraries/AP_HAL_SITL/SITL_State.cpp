@@ -20,6 +20,7 @@
 #include <AP_Param/AP_Param.h>
 #include <SITL/SIM_JSBSim.h>
 #include <AP_HAL/utility/Socket.h>
+#include "SITL/SIM_Aircraft.h"
 
 #ifdef WIN32
 	#include <winsock2.h>
@@ -39,9 +40,18 @@
 	typedef struct in_addr IN_ADDR;
 #endif
 
+const char *destIPAdress = "192.168.0.202";
+unsigned int inputPort = 51006;
+unsigned int outputPort = 52006;
+static SOCKET socket_input;
+static SOCKADDR_IN addr_input;
+static SOCKET socket_output;
+static SOCKADDR_IN addr_output;
+
 extern const AP_HAL::HAL& hal;
 
 using namespace HALSITL;
+using namespace SITL;
 
 void SITL_State::_set_param_default(const char *parm)
 {
@@ -125,6 +135,9 @@ void SITL_State::_sitl_setup(const char *home_str)
         fprintf(stdout, "Using Irlock at port : %d\n", _irlock_port);
         _sitl->irlock_port = _irlock_port;
     }
+
+    _init_UPD_comm(destIPAdress, inputPort, outputPort);
+
 
     if (_synthetic_clock_mode) {
         // start with non-zero clock
@@ -580,69 +593,11 @@ void SITL_State::_output_to_flightgear(void)
     fg_socket.send(&fdm, sizeof(fdm));
 }
 
-/*
-  output motor command to UDP port
- */
-const char *destIPAdress = "192.168.0.202";
-unsigned int inputPort = 51006;
-unsigned int outputPort = 52006;
+///////////////// UDP Comm section /////////////////
+Vector3f SITL_State::speed_rot{0.0f, 0.0f, 0.0f};
+Vector3f SITL_State::accel_body{0.0f, 0.0f, 0.0f};
 
-static SOCKET socket_input;
-//static SOCKADDR_IN addr_input;
-
-static SOCKET socket_output;
-static SOCKADDR_IN addr_output;
-
-void SITL_State::_output_motor_command_to_UDP(void)
-{
-	// Cr\E9taion d'une structure 'fdm' dans laquelle copier les donn\E9es que l'ont veut extraire
-	// Eventuellement, cr\E9ation d'une autre structure que la structure fdm existante, pour
-	// avoir une structure sp\E9cifique \E0 notre besoin
-	// Remplir la structure
-	// creer une 'fg_socket' r\E9pondant \E0 notre besoin.
-
-	init_UPD_comm(destIPAdress, inputPort, outputPort);
-	char buffer[4096];
-	memset(&buffer, 0, sizeof(buffer));
-
-	/*for (int i =0; i<static_cast<int>(sizeof(pwm_input)/sizeof(pwm_input[0])); i++)
-	{
-		sprintf(buffer, "%f ", 1000 - pwm_input[i]/1000);
-	}*/
-    sprintf(buffer, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f ",
-           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE
-           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_TWO
-           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE
-           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_TWO
-           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_ONE
-           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_TWO
-           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_ONE
-           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_TWO
-           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_ONE
-           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_TWO
-           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_ONE
-           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_TWO
-           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE
-           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_TWO
-           (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_ONE
-           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_TWO
-
-
-    if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
-	{
-		sock_err_message("sendto()");
-		exit(sock_error());
-	}
-	closesocket(socket_input);
-#ifdef WIN32
-	WSACleanup();
-#endif
-
-	//printf("Hey !!! It's me _output_motor_command_to_UDP !\n");
-
-}
-
-int SITL_State::init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out)
+int SITL_State::_init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out)
 {
 #ifdef WIN32
 	WSADATA wsa;
@@ -654,16 +609,15 @@ int SITL_State::init_UPD_comm(const char* IP_adress, unsigned int port_in, unsig
 	}
 #endif
 
-/*
 	// Input initialisation
 	socket_input = socket(AF_INET, SOCK_DGRAM, 0);
 	if(socket_input == INVALID_SOCKET)
 	{
-		sock_err_message("socket()");
-		exit(sock_error());
+		_sock_err_message("socket()");
+		exit(_sock_error());
 	}
 
-	 Put socket in nonblocking mode.
+	 // Put socket in nonblocking mode.
 #ifdef WIN32
 	unsigned long argp = 1;
 	ioctlsocket(socket_input, FIONBIO, &argp);
@@ -677,18 +631,17 @@ int SITL_State::init_UPD_comm(const char* IP_adress, unsigned int port_in, unsig
 
 	if(bind (socket_input, (SOCKADDR *) &addr_input, sizeof addr_input) == SOCKET_ERROR)
 	{
-		sock_err_message("bind()");
-		exit(sock_error());
+		_sock_err_message("bind()");
+		exit(_sock_error());
 	}
 	// Input initialized
-*/
 
 	// Output initialisation
 	socket_output = socket(AF_INET, SOCK_DGRAM, 0);
 	if(socket_output == INVALID_SOCKET)
 	{
-		sock_err_message("socket()");
-		exit(sock_error());
+		_sock_err_message("socket()");
+		exit(_sock_error());
 	}
 
 	/* Put socket in nonblocking mode. */
@@ -714,7 +667,84 @@ int SITL_State::init_UPD_comm(const char* IP_adress, unsigned int port_in, unsig
 	return 0;
 }
 
-int SITL_State::sock_error(void)
+void SITL_State::_UDP_comm_in(void){
+	char recv_data[4096];
+	char recv_data_tmp[4096];
+	int bytes_read = 0;
+	int bytes_read_tmp = 0;
+
+#ifdef WIN32
+	int addr_input_size = sizeof addr_input;
+#else
+	unsigned int addr_input_size = sizeof addr_input;
+#endif
+	do
+	{
+		memcpy(recv_data, recv_data_tmp, sizeof(recv_data));
+		bytes_read = bytes_read_tmp;
+
+		bytes_read_tmp = recvfrom(socket_input, recv_data_tmp, 4096, 0, (SOCKADDR *)&addr_input, &addr_input_size);
+	}
+	while(bytes_read_tmp != -1);
+
+	recv_data[bytes_read] = '\0'; // to test if useful
+
+	float lattitude =0.0f;
+	float longitude =0.0f;
+	if(bytes_read > 0)
+    {
+		sscanf(recv_data, "%f %f %f %f %f %f %f %f ",
+				&lattitude,
+				&longitude,
+				&accel_body[0],
+				&accel_body[1],
+				&accel_body[2],
+				&speed_rot[0],
+				&speed_rot[1],
+				&speed_rot[2]);
+	}
+
+	Aircraft::set_IMU_values(accel_body, speed_rot);
+}
+
+void SITL_State::_UDP_comm_out(void)
+{
+	// Cr\E9taion d'une structure 'fdm' dans laquelle copier les donn\E9es que l'ont veut extraire
+	// Eventuellement, cr\E9ation d'une autre structure que la structure fdm existante, pour
+	// avoir une structure sp\E9cifique \E0 notre besoin
+	// Remplir la structure
+	// creer une 'fg_socket' r\E9pondant \E0 notre besoin.
+
+	//init_UPD_comm(destIPAdress, inputPort, outputPort);
+	char buffer[4096];
+	memset(&buffer, 0, sizeof(buffer));
+    /*sprintf(buffer, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f ",
+           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE
+           (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_TWO
+           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE
+           (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_TWO
+           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_ONE
+           (static_cast<float>(pwm_output[5])-1000.0)/1000.0, // i.e. RH_FRONT_TOP_TWO
+           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_ONE
+           (static_cast<float>(pwm_output[10])-1000.0)/1000.0, // i.e. RH_FRONT_DOWN_TWO
+           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_ONE
+           (static_cast<float>(pwm_output[7])-1000.0)/1000.0, // i.e. LH_REAR_TOP_TWO
+           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_ONE
+           (static_cast<float>(pwm_output[12])-1000.0)/1000.0, // i.e. LH_REAR_DOWN_TWO
+           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE
+           (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_TWO
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_ONE
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_TWO
+
+
+    if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
+	{
+		_sock_err_message("sendto()");
+		exit(_sock_error());
+	}*/
+}
+
+int SITL_State::_sock_error(void)
 {
 #ifdef WIN32
 	return WSAGetLastError();
@@ -723,7 +753,7 @@ int SITL_State::sock_error(void)
   #endif
 }
 
-void SITL_State::sock_err_message(const char* msg)
+void SITL_State::_sock_err_message(const char* msg)
 {
 #ifdef WIN32
 	fprintf (stderr, "Error : %s.\n", msg);
@@ -732,6 +762,14 @@ void SITL_State::sock_err_message(const char* msg)
 	perror(msg);
 #endif
 }
+
+void SITL_State::_close_UDP_comm(void){
+	closesocket(socket_input);
+#ifdef WIN32
+	WSACleanup();
+#endif
+}
+///////////////// end UDP Comm section /////////////////
 
 /*
   get FDM input from a local model
@@ -847,7 +885,8 @@ void SITL_State::_fdm_input_local(void)
         _output_to_flightgear();
     }
 
-    _output_motor_command_to_UDP();
+    _UDP_comm_out();
+    _UDP_comm_in();
 
     // update simulation time
     if (_sitl) {
