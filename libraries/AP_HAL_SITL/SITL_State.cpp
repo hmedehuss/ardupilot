@@ -689,12 +689,12 @@ void SITL_State::_UDP_comm_in(void){
 
 	recv_data[bytes_read] = '\0'; // to test if useful
 
-	float lattitude =0.0f;
+	float latitude =0.0f;
 	float longitude =0.0f;
 	if(bytes_read > 0)
     {
 		sscanf(recv_data, "%f %f %f %f %f %f %f %f ",
-				&lattitude,
+				&latitude,
 				&longitude,
 				&accel_body[0],
 				&accel_body[1],
@@ -718,7 +718,7 @@ void SITL_State::_UDP_comm_out(void)
 	//init_UPD_comm(destIPAdress, inputPort, outputPort);
 	char buffer[4096];
 	memset(&buffer, 0, sizeof(buffer));
-    /*sprintf(buffer, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f ",
+    sprintf(buffer, "%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f ",
            (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_ONE
            (static_cast<float>(pwm_output[6])-1000.0)/1000.0, // i.e. LH_FRONT_TOP_TWO
            (static_cast<float>(pwm_output[9])-1000.0)/1000.0, // i.e. LH_FRONT_DOWN_ONE
@@ -734,14 +734,15 @@ void SITL_State::_UDP_comm_out(void)
            (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_ONE
            (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_TWO
            (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_ONE
-           (static_cast<float>(pwm_output[11])-1000.0)/1000.0);// i.e. RH_REAR_DOWN_TWO
-
+           (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_TWO
+    	   (static_cast<float>(pwm_output[3])-1000.0)/1000.0,// i.e. LH_PUSHER
+		   (static_cast<float>(pwm_output[13])-1000.0)/1000.0);// i.e. RH_PUSHER
 
     if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
 	{
 		_sock_err_message("sendto()");
 		exit(_sock_error());
-	}*/
+	}
 }
 
 int SITL_State::_sock_error(void)
