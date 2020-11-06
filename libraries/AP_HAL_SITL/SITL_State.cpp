@@ -596,6 +596,7 @@ void SITL_State::_output_to_flightgear(void)
 ///////////////// UDP Comm section /////////////////
 Vector3f SITL_State::speed_rot{0.0f, 0.0f, 0.0f};
 Vector3f SITL_State::accel_body{0.0f, 0.0f, 0.0f};
+Vector3f SITL_State::position{0.0f, 0.0f, 0.0f};
 
 int SITL_State::_init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out)
 {
@@ -664,6 +665,9 @@ int SITL_State::_init_UPD_comm(const char* IP_adress, unsigned int port_in, unsi
         addr_output.sin_addr = *((struct in_addr *)host_output->h_addr);
 	// Output initialized
 
+    outFile.open ("out.csv");
+    outFile << "LH_FRONT_TOP;LH_FRONT_DOWN;RH_FRONT_TOP;RH_FRONT_DOWN;LH_REAR_TOP;LH_REAR_DOWN;RH_REAR_TOP;RH_REAR_DOWN;LH_PUSHER;RH_PUSHER" << std::endl;
+
 	return 0;
 }
 
@@ -689,13 +693,16 @@ void SITL_State::_UDP_comm_in(void){
 
 	recv_data[bytes_read] = '\0'; // to test if useful
 
-	float latitude =0.0f;
-	float longitude =0.0f;
+	float latitude=0.0f;
+	float longitude=0.0f;
+	float altitude=0.0f;
+
 	if(bytes_read > 0)
     {
-		sscanf(recv_data, "%f %f %f %f %f %f %f %f ",
-				&latitude,
-				&longitude,
+		sscanf(recv_data, "%f %f %f %f %f %f %f %f %f ",
+				&latitude, //lat
+				&longitude, //long
+				&altitude, //alt
 				&accel_body[0],
 				&accel_body[1],
 				&accel_body[2],
@@ -704,7 +711,9 @@ void SITL_State::_UDP_comm_in(void){
 				&speed_rot[2]);
 	}
 
-	Aircraft::set_IMU_values(accel_body, speed_rot);
+	Aircraft::set_IMU_values(accel_body*9.81, speed_rot);
+	//_sitl->state.latitude = static_cast<long>(latitude);
+	//printf("out ? \t %lf \n", _sitl->state.latitude);
 }
 
 void SITL_State::_UDP_comm_out(void)
@@ -735,8 +744,23 @@ void SITL_State::_UDP_comm_out(void)
            (static_cast<float>(pwm_output[8])-1000.0)/1000.0, // i.e. RH_REAR_TOP_TWO
            (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_ONE
            (static_cast<float>(pwm_output[11])-1000.0)/1000.0,// i.e. RH_REAR_DOWN_TWO
-    	   (static_cast<float>(pwm_output[3])-1000.0)/1000.0,// i.e. LH_PUSHER
-		   (static_cast<float>(pwm_output[13])-1000.0)/1000.0);// i.e. RH_PUSHER
+    	   //(static_cast<float>(pwm_output[3])-1000.0)/1000.0,// i.e. LH_PUSHER
+		   //(static_cast<float>(pwm_output[13])-1000.0)/1000.0);// i.e. RH_PUSHER
+		   0.0f,
+		   0.0f);
+
+    outFile << (static_cast<float>(pwm_output[6])-1000.0)/1000.0 << ";" <<
+    			(static_cast<float>(pwm_output[9])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[5])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[10])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[7])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[12])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[8])-1000.0)/1000.0 << ";" <<
+				(static_cast<float>(pwm_output[11])-1000.0)/1000. << ";" <<
+				//(static_cast<float>(pwm_output[3])-1000.0)/1000. << ";" <<
+				//(static_cast<float>(pwm_output[13])-1000.0)/1000.0 << std::endl;
+				0.0f << ";" <<
+				0.0f << std::endl;
 
     if(sendto(socket_output, buffer, static_cast<int>(strlen(buffer)), 0, (SOCKADDR *)&addr_output, sizeof addr_output) < 0)
 	{

@@ -356,10 +356,10 @@ void Plane::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     // scale thrust to newtons
     thrust *= thrust_scale;
 
-    /*accel_body = Vector3f(thrust, 0, 0) + force;
-    accel_body /= mass;*/
+    accel_body = Vector3f(thrust, 0, 0) + force;
+    accel_body /= mass;
 
-    accel_body = Aircraft::UDP_accel_body;
+    //accel_body = Aircraft::UDP_accel_body;
 
     // add some noise
     if (thrust_scale > 0) {

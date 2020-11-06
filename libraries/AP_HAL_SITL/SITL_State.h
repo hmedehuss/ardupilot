@@ -50,6 +50,8 @@
 #include <SITL/SIM_RichenPower.h>
 #include <AP_HAL/utility/Socket.h>
 
+#include <fstream>
+
 class HAL_SITL;
 
 class HALSITL::SITL_State {
@@ -174,6 +176,8 @@ private:
     ///////////////// UDP Comm section /////////////////
     static Vector3f speed_rot;
     static Vector3f accel_body;
+    static Vector3f position;
+    std::fstream outFile;
     int _init_UPD_comm(const char* IP_adress, unsigned int port_in, unsigned int port_out);
     void _UDP_comm_in(void);
     void _UDP_comm_out(void);

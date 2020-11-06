@@ -544,7 +544,8 @@ void Aircraft::update_dynamics(const Vector3f &rot_accel)
 
     // work out acceleration as seen by the accelerometers. It sees the kinematic
     // acceleration (ie. real movement), plus gravity
-    accel_body = dcm.transposed() * (accel_earth + Vector3f(0.0f, 0.0f, -GRAVITY_MSS));
+    //accel_body = dcm.transposed() * (accel_earth + Vector3f(0.0f, 0.0f, -GRAVITY_MSS));
+    accel_body = UDP_accel_body;
 
     // new velocity vector
     velocity_ef += accel_earth * delta_time;
