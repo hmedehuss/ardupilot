@@ -2,7 +2,7 @@
 
 <PropertyList>
 
- <path>Rascal110-000-013.ac</path>
+ <path>c172p.ac</path>
 
  <model>
    <path>Aircraft/Rascal/Models/smokeW.xml</path>
