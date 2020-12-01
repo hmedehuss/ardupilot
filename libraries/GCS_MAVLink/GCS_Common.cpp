@@ -1729,7 +1729,8 @@ void GCS_MAVLINK::send_scaled_imu(uint8_t instance, void (*send_fn)(mavlink_chan
         mag.x,
         mag.y,
         mag.z,
-        int16_t(ins.get_temperature(instance)*100));
+        // int16_t(ins.get_temperature(instance)*100));
+        2);
 }
 
 
